@@ -4,6 +4,11 @@ import ReactDOM from 'react-dom/client';
 // Für diese Vorschau-Umgebung wird jedoch das CDN verwendet.
 import "https://cdn.tailwindcss.com";
 
+// Laden der Firebase-Funktionen aus der Umgebung
+const { initializeApp } = firebase;
+const { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } = auth;
+const { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, addDoc, getDocs } = firestore;
+
 const App = () => {
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
@@ -15,18 +20,16 @@ const App = () => {
   const [currentPrices, setCurrentPrices] = useState({});
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [loadingFirebase, setLoadingFirebase] = useState(true);
+  const [importingData, setImportingData] = useState(false);
 
   // --- Firebase-Initialisierung und Authentifizierung ---
   useEffect(() => {
     // Globale Variablen aus der Umgebung verwenden
     const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
     const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
     if (Object.keys(firebaseConfig).length > 0) {
       try {
-        // Firebase-Funktionen werden von der Umgebung bereitgestellt,
-        // daher keine direkten Imports mehr benötigt.
         const app = initializeApp(firebaseConfig);
         const firestoreDb = getFirestore(app);
         const firebaseAuth = getAuth(app);
@@ -236,7 +239,7 @@ const App = () => {
 
   const handleAddTransaction = async (e) => {
     e.preventDefault();
-    if (!ticker || !quantity || !price || !date || !userId) return;
+    if (!ticker || !quantity || !price || !date || !userId || !db) return;
     
     try {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -260,7 +263,7 @@ const App = () => {
 
   const handleAddDividend = async (e) => {
     e.preventDefault();
-    if (!dividendTicker || !dividendAmount || !dividendDate || !userId) return;
+    if (!dividendTicker || !dividendAmount || !dividendDate || !userId || !db) return;
 
     try {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -277,6 +280,63 @@ const App = () => {
     setDividendTicker('');
     setDividendAmount('');
     setDividendDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const handleImportData = async (event) => {
+    const files = event.target.files;
+    if (files.length === 0 || !userId || !db) return;
+
+    setImportingData(true);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const userPath = `artifacts/${appId}/users/${userId}`;
+
+    try {
+      await Promise.all(Array.from(files).map(file => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+            const content = e.target.result;
+            const lines = content.split('\n').filter(line => line.trim() !== '');
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            const dataRows = lines.slice(1);
+
+            if (file.name.includes('transactions')) {
+              for (const row of dataRows) {
+                const values = row.split(',');
+                if (values.length !== headers.length) continue;
+                const txData = {
+                  ticker: values[headers.indexOf('ticker')].toUpperCase(),
+                  quantity: parseFloat(values[headers.indexOf('quantity')]),
+                  price: parseFloat(values[headers.indexOf('price')]),
+                  type: values[headers.indexOf('type')],
+                  date: values[headers.indexOf('date')]
+                };
+                await addDoc(collection(db, `${userPath}/transactions`), txData);
+              }
+            } else if (file.name.includes('dividends')) {
+              for (const row of dataRows) {
+                const values = row.split(',');
+                if (values.length !== headers.length) continue;
+                const divData = {
+                  ticker: values[headers.indexOf('ticker')].toUpperCase(),
+                  amount: parseFloat(values[headers.indexOf('amount')]),
+                  date: values[headers.indexOf('date')]
+                };
+                await addDoc(collection(db, `${userPath}/dividends`), divData);
+              }
+            }
+            resolve();
+          };
+          reader.onerror = reject;
+          reader.readAsText(file);
+        });
+      }));
+    } catch (error) {
+      console.error("Fehler beim Datenimport:", error);
+    } finally {
+      setImportingData(false);
+      event.target.value = null; // Reset file input
+    }
   };
 
   // UI-Layout
@@ -401,6 +461,37 @@ const App = () => {
             </form>
           </Section>
         </div>
+        
+        {/* Datei-Import */}
+        <Section title="Daten importieren">
+          <div className="flex flex-col space-y-4">
+            <div className="flex flex-col">
+              <label className="text-sm font-medium mb-1">CSV-Dateien auswählen</label>
+              <input 
+                type="file" 
+                multiple 
+                onChange={handleImportData}
+                className="form-input-file"
+                disabled={importingData}
+              />
+            </div>
+            {importingData && (
+              <div className="flex items-center justify-center p-4 bg-indigo-50 rounded-lg">
+                <span className="animate-spin mr-2">🔄</span>
+                <p className="text-sm text-indigo-700">Daten werden importiert...</p>
+              </div>
+            )}
+            <p className="text-sm text-gray-500 mt-2">
+              Wählen Sie eine oder mehrere CSV-Dateien aus. Die Dateinamen sollten "transactions.csv" oder "dividends.csv" enthalten.
+              Erforderliche Spalten:
+              <ul>
+                <li>transactions.csv: ticker, type, quantity, price, date</li>
+                <li>dividends.csv: ticker, amount, date</li>
+              </ul>
+            </p>
+          </div>
+        </Section>
+
 
         {/* Historische Transaktionen und Dividenden */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
@@ -527,6 +618,27 @@ const FormStyle = () => (
     .button-primary:hover {
       background-color: #4338ca;
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    .form-input-file {
+      display: block;
+      width: 100%;
+      padding-top: 0.75rem;
+      padding-bottom: 0.75rem;
+      font-size: 1rem;
+      line-height: 1.5;
+      color: #4b5563;
+    }
+    .form-input-file::-webkit-file-upload-button {
+      background-color: #4f46e5;
+      color: #fff;
+      border: 0;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .form-input-file::-webkit-file-upload-button:hover {
+      background-color: #4338ca;
     }
     `}
   </style>
