@@ -631,14 +631,14 @@
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
-                        console.log(`Benutzer authentifiziert mit ID: ${userId}`);
+                        console.log(`Benutzer authentifiziert mit ID: ${userId}. UI wird initialisiert.`);
                         // Starten der Hauptlogik nach erfolgreicher Authentifizierung
                         initializeUI();
                         
                         // Setze die Echtzeit-Listener für alle Daten
                         setupRealtimeListeners();
                     } else {
-                        console.log('Authentifizierung fehlgeschlagen oder anonym');
+                        console.log('Authentifizierung fehlgeschlagen oder anonym. UI wurde nicht initialisiert.');
                     }
                 });
 
@@ -923,6 +923,8 @@
 
         // Hauptfunktion, die die Benutzeroberfläche initialisiert
         function initializeUI() {
+            console.log("UI-Initialisierung gestartet.");
+            
             // UI-Elemente
             const tabButtons = document.querySelectorAll('.tab-button');
             const tabContents = document.querySelectorAll('.tab-content');
@@ -1217,10 +1219,13 @@
             
             // Initialisierung der Sprache
             updateLanguage(currentLanguage);
+            console.log("UI-Initialisierung abgeschlossen.");
         }
 
-        // Starten der Firebase-Einrichtung beim Laden des Fensters
-        window.onload = setupFirebase;
+        // Starten der Firebase-Einrichtung beim Laden des DOM
+        document.addEventListener('DOMContentLoaded', () => {
+            setupFirebase();
+        });
     </script>
 </body>
 </html>
