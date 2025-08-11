@@ -1,0 +1,933 @@
+
+
+
+############### Neue seite ###############
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depot Manager</title>
+    <!-- Tailwind CSS über CDN für responsives Design und modernes Aussehen -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        /* CSS für Dunkelmodus */
+        body.dark {
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+        body.dark .bg-white {
+            background-color: #2d3748;
+        }
+        body.dark .text-gray-700 {
+            color: #e2e8f0;
+        }
+        body.dark .text-gray-500 {
+            color: #a0aec0;
+        }
+        body.dark .border-gray-200 {
+            border-color: #4a5568;
+        }
+        body.dark table th, body.dark table td {
+            border-bottom-color: #4a5568;
+        }
+        .tab-button.active {
+            border-color: #4f46e5;
+            color: #4f46e5;
+        }
+        body.dark .tab-button.active {
+            color: #818cf8;
+            border-color: #818cf8;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-700">
+    <div class="container mx-auto p-4 lg:p-8 max-w-7xl">
+        <!-- Haupt-Header mit anpassbarem Titel -->
+        <header class="mb-8">
+            <div class="flex items-center justify-between flex-wrap gap-4">
+                <h1 id="app-title" contenteditable="true" class="text-4xl lg:text-5xl font-bold cursor-pointer text-gray-900 dark:text-white">Depot Manager</h1>
+                <!-- UI für Personalisierung und Datenimport -->
+                <div class="flex items-center space-x-4">
+                    <button id="import-data-button" class="px-4 py-2 bg-green-500 text-white font-medium text-xs leading-tight uppercase rounded-full shadow-md hover:bg-green-600 hover:shadow-lg focus:outline-none focus:ring-0 active:bg-green-700 transition duration-150 ease-in-out">
+                        Daten importieren
+                    </button>
+                    <button id="theme-toggle" class="p-2 rounded-full bg-white dark:bg-gray-800 shadow-md">
+                        <svg class="h-6 w-6 text-gray-800 dark:text-gray-200" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigations-Tabs -->
+        <nav class="mb-8">
+            <ul class="flex flex-wrap text-center border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
+                <li class="mr-2">
+                    <button data-tab="overview" class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300 font-medium tab-button active">Depot-Übersicht</button>
+                </li>
+                <li class="mr-2">
+                    <button data-tab="watchlist" class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300 font-medium tab-button">Watchlist</button>
+                </li>
+                <li class="mr-2">
+                    <button data-tab="dividends" class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300 font-medium tab-button">Dividenden</button>
+                </li>
+                <li class="mr-2">
+                    <button data-tab="analysis" class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300 font-medium tab-button">Analyse</button>
+                </li>
+                <li class="mr-2">
+                    <button data-tab="news" class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300 font-medium tab-button">Nachrichten</button>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Inhaltsbereich der Tabs -->
+        <main>
+            <!-- Depot-Übersicht Tab -->
+            <div id="overview-tab" class="tab-content active p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200">Depot-Übersicht</h2>
+                    <div class="mt-4 lg:mt-0">
+                        <p class="text-lg text-gray-500 dark:text-gray-400">Gesamtwert des Depots:</p>
+                        <p id="total-value" class="text-3xl font-bold text-gray-900 dark:text-white">€0,00</p>
+                    </div>
+                </div>
+
+                <!-- Tabelle für die Depot-Positionen -->
+                <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                            <tr>
+                                <th scope="col" class="py-3 px-6">Logo</th>
+                                <th scope="col" class="py-3 px-6">Unternehmen</th>
+                                <th scope="col" class="py-3 px-6">WKN/Symbol</th>
+                                <th scope="col" class="py-3 px-6">Stückzahl</th>
+                                <th scope="col" class="py-3 px-6">Akt. Kurs</th>
+                                <th scope="col" class="py-3 px-6">Durschnitts-Einstandskurs</th>
+                                <th scope="col" class="py-3 px-6">Gewinn/Verlust</th>
+                                <th scope="col" class="py-3 px-6">Rendite</th>
+                                <th scope="col" class="py-3 px-6">IRR (sim.)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="portfolio-table-body">
+                            <!-- Hier werden die Daten aus Firestore eingefügt -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button id="add-transaction-button" class="px-6 py-3 bg-indigo-600 text-white font-medium text-xs leading-tight uppercase rounded-full shadow-md hover:bg-indigo-700 hover:shadow-lg focus:bg-indigo-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-indigo-800 active:shadow-lg transition duration-150 ease-in-out">
+                        Transaktion hinzufügen
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Watchlist Tab -->
+            <div id="watchlist-tab" class="tab-content hidden p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Watchlist</h2>
+                <div id="watchlist-items" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Watchlist-Elemente werden hier eingefügt -->
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button id="add-watchlist-button" class="px-6 py-3 bg-indigo-600 text-white font-medium text-xs leading-tight uppercase rounded-full shadow-md hover:bg-indigo-700 hover:shadow-lg focus:bg-indigo-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-indigo-800 active:shadow-lg transition duration-150 ease-in-out">
+                        Aktie zur Watchlist hinzufügen
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dividenden Tab -->
+            <div id="dividends-tab" class="tab-content hidden p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200">Erhaltene Dividenden</h2>
+                    <button id="add-dividend-button" class="px-6 py-3 bg-indigo-600 text-white font-medium text-xs leading-tight uppercase rounded-full shadow-md hover:bg-indigo-700 hover:shadow-lg focus:bg-indigo-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-indigo-800 active:shadow-lg transition duration-150 ease-in-out">
+                        Dividende hinzufügen
+                    </button>
+                </div>
+                <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                            <tr>
+                                <th scope="col" class="py-3 px-6">Unternehmen</th>
+                                <th scope="col" class="py-3 px-6">WKN/Symbol</th>
+                                <th scope="col" class="py-3 px-6">Betrag</th>
+                                <th scope="col" class="py-3 px-6">Datum</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dividends-table-body">
+                            <!-- Hier werden die Dividenden-Daten eingefügt -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Analyse Tab -->
+            <div id="analysis-tab" class="tab-content hidden p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Depot-Performance</h2>
+                <div class="relative h-96">
+                    <canvas id="performance-chart"></canvas>
+                </div>
+                
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mt-8 mb-4">Dividenden-Entwicklung</h2>
+                <div class="relative h-96">
+                    <canvas id="dividends-chart"></canvas>
+                </div>
+                <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm">
+                    <p class="text-lg font-medium text-gray-900 dark:text-white">Gesamt erhaltene Dividenden:</p>
+                    <p id="total-dividends" class="text-2xl font-bold text-green-600">€0,00</p>
+                </div>
+            </div>
+
+            <!-- Nachrichten Tab -->
+            <div id="news-tab" class="tab-content hidden p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Aktuelle Nachrichten</h2>
+                <div id="news-feed" class="space-y-4">
+                    <!-- Nachrichten-Artikel werden hier eingefügt -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Modalfenster zum Hinzufügen einer Transaktion -->
+        <div id="add-transaction-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
+                <div class="mt-3 text-center">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200">Neue Transaktion erfassen</h3>
+                    <div class="mt-2 px-7 py-3">
+                        <form id="add-transaction-form">
+                            <div class="mb-4">
+                                <label for="transaction-type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left">Transaktionsart</label>
+                                <select id="transaction-type" name="transaction-type" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
+                                    <option value="buy">Kauf</option>
+                                    <option value="sell">Verkauf</option>
+                                </select>
+                            </div>
+                            <div class="mb-4">
+                                <label for="symbol" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left">WKN/Symbol</label>
+                                <input type="text" id="symbol" name="symbol" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="shares" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left">Stückzahl</label>
+                                <input type="number" id="shares" name="shares" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="price" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left">Kurs</label>
+                                <input type="number" step="0.01" id="price" name="price" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="transaction-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left">Datum</label>
+                                <input type="date" id="transaction-date" name="transaction-date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
+                            </div>
+                            <div class="items-center px-4 py-3">
+                                <button type="submit" class="px-4 py-2 bg-indigo-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    Speichern
+                                </button>
+                                <button type="button" id="close-transaction-modal-button" class="mt-2 px-4 py-2 bg-gray-200 text-gray-700 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none">
+                                    Abbrechen
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modalfenster zum Hinzufügen einer Dividende -->
+        <div id="add-dividend-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
+                <div class="mt-3 text-center">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200">Neue Dividende erfassen</h3>
+                    <div class="mt-2 px-7 py-3">
+                        <form id="add-dividend-form">
+                            <div class="mb-4">
+                                <label for="dividend-symbol" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left">WKN/Symbol</label>
+                                <input type="text" id="dividend-symbol" name="dividend-symbol" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="dividend-amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left">Betrag pro Aktie (€)</label>
+                                <input type="number" step="0.01" id="dividend-amount" name="dividend-amount" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
+                            </div>
+                             <div class="mb-4">
+                                <label for="dividend-shares" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left">Stückzahl</label>
+                                <input type="number" id="dividend-shares" name="dividend-shares" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
+                            </div>
+                            <div class="mb-4">
+                                <label for="dividend-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left">Datum</label>
+                                <input type="date" id="dividend-date" name="dividend-date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
+                            </div>
+                            <div class="items-center px-4 py-3">
+                                <button type="submit" class="px-4 py-2 bg-indigo-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    Speichern
+                                </button>
+                                <button type="button" id="close-dividend-modal-button" class="mt-2 px-4 py-2 bg-gray-200 text-gray-700 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none">
+                                    Abbrechen
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modalfenster zum Hinzufügen zur Watchlist -->
+        <div id="add-watchlist-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
+                <div class="mt-3 text-center">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200">Aktie zur Watchlist hinzufügen</h3>
+                    <div class="mt-2 px-7 py-3">
+                        <form id="add-watchlist-form">
+                            <div class="mb-4">
+                                <label for="watchlist-symbol" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left">WKN/Symbol</label>
+                                <input type="text" id="watchlist-symbol" name="watchlist-symbol" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
+                            </div>
+                            <div class="items-center px-4 py-3">
+                                <button type="submit" class="px-4 py-2 bg-indigo-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    Hinzufügen
+                                </button>
+                                <button type="button" id="close-watchlist-modal-button" class="mt-2 px-4 py-2 bg-gray-200 text-gray-700 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none">
+                                    Abbrechen
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js-Bibliothek, global verfügbar -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Haupt-Skript, das alle Firebase-Module importiert -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, collection, addDoc, deleteDoc, getDocs, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Globale Variablen für Firebase-Dienste und Benutzer
+        let app;
+        let db;
+        let auth;
+        let userId = 'anonymous';
+
+        // Funktion zum Initialisieren der App und Authentifizierung
+        async function setupFirebase() {
+            try {
+                // Konfigurationsdaten aus der Canvas-Umgebung
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+                // Firebase initialisieren
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Benutzer authentifizieren
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Warten, bis der Authentifizierungsstatus feststeht
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        console.log(`Benutzer authentifiziert mit ID: ${userId}`);
+                        // Starten der Hauptlogik nach erfolgreicher Authentifizierung
+                        initializeUI(userId, appId);
+                    } else {
+                        console.log('Authentifizierung fehlgeschlagen oder anonym');
+                    }
+                });
+
+            } catch (error) {
+                console.error("Fehler beim Initialisieren von Firebase:", error);
+            }
+        }
+
+        // Hauptfunktion, die die Benutzeroberfläche initialisiert
+        function initializeUI(userId, appId) {
+            // UI-Elemente
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabContents = document.querySelectorAll('.tab-content');
+            const addTransactionBtn = document.getElementById('add-transaction-button');
+            const transactionModal = document.getElementById('add-transaction-modal');
+            const closeTransactionModalBtn = document.getElementById('close-transaction-modal-button');
+            const addTransactionForm = document.getElementById('add-transaction-form');
+            const portfolioTableBody = document.getElementById('portfolio-table-body');
+            const totalValueDisplay = document.getElementById('total-value');
+            const themeToggleBtn = document.getElementById('theme-toggle');
+            const appTitle = document.getElementById('app-title');
+
+            // Neu hinzugefügte UI-Elemente
+            const importDataButton = document.getElementById('import-data-button');
+            const watchlistItems = document.getElementById('watchlist-items');
+            const addWatchlistBtn = document.getElementById('add-watchlist-button');
+            const watchlistModal = document.getElementById('add-watchlist-modal');
+            const closeWatchlistModalBtn = document.getElementById('close-watchlist-modal-button');
+            const addWatchlistForm = document.getElementById('add-watchlist-form');
+            const dividendsTableBody = document.getElementById('dividends-table-body');
+            const addDividendBtn = document.getElementById('add-dividend-button');
+            const dividendModal = document.getElementById('add-dividend-modal');
+            const closeDividendModalBtn = document.getElementById('close-dividend-modal-button');
+            const addDividendForm = document.getElementById('add-dividend-form');
+            const newsFeed = document.getElementById('news-feed');
+            const totalDividendsDisplay = document.getElementById('total-dividends');
+
+
+            // Tabs-Logik
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabContents.forEach(content => content.classList.add('hidden'));
+
+                    button.classList.add('active');
+                    const targetTab = document.getElementById(`${button.dataset.tab}-tab`);
+                    targetTab.classList.remove('hidden');
+
+                    if (button.dataset.tab === 'analysis') {
+                        renderCharts();
+                    } else if (button.dataset.tab === 'news') {
+                        fetchNews();
+                    } else if (button.dataset.tab === 'watchlist') {
+                        fetchWatchlist();
+                    }
+                });
+            });
+
+            // Modalfenster-Logik für Transaktionen
+            addTransactionBtn.addEventListener('click', () => {
+                transactionModal.classList.remove('hidden');
+            });
+            closeTransactionModalBtn.addEventListener('click', () => {
+                transactionModal.classList.add('hidden');
+            });
+            transactionModal.addEventListener('click', (e) => {
+                if (e.target === transactionModal) {
+                    transactionModal.classList.add('hidden');
+                }
+            });
+
+            // Modalfenster-Logik für Dividenden
+            addDividendBtn.addEventListener('click', () => {
+                dividendModal.classList.remove('hidden');
+            });
+            closeDividendModalBtn.addEventListener('click', () => {
+                dividendModal.classList.add('hidden');
+            });
+            dividendModal.addEventListener('click', (e) => {
+                if (e.target === dividendModal) {
+                    dividendModal.classList.add('hidden');
+                }
+            });
+
+            // Modalfenster-Logik für Watchlist
+            addWatchlistBtn.addEventListener('click', () => {
+                watchlistModal.classList.remove('hidden');
+            });
+            closeWatchlistModalBtn.addEventListener('click', () => {
+                watchlistModal.classList.add('hidden');
+            });
+            watchlistModal.addEventListener('click', (e) => {
+                if (e.target === watchlistModal) {
+                    watchlistModal.classList.add('hidden');
+                }
+            });
+
+            // Formular-Logik für Transaktionen
+            addTransactionForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const transactionType = document.getElementById('transaction-type').value;
+                const symbol = document.getElementById('symbol').value.toUpperCase();
+                let shares = parseFloat(document.getElementById('shares').value);
+                const price = parseFloat(document.getElementById('price').value);
+                const transactionDate = document.getElementById('transaction-date').value;
+
+                // Verkäufe mit negativem Wert speichern
+                if (transactionType === 'sell') {
+                    shares = -shares;
+                }
+
+                // Hier würden wir Live-Daten abrufen, aber verwenden stattdessen Mock-Daten
+                const currentPrice = price * (1 + (Math.random() - 0.5) * 0.2);
+                const companyName = getMockCompanyName(symbol);
+
+                const newTransaction = {
+                    symbol: symbol,
+                    companyName: companyName,
+                    logoUrl: getMockLogoUrl(symbol),
+                    shares: shares,
+                    price: price,
+                    transactionType: transactionType,
+                    date: transactionDate,
+                    currentPrice: currentPrice
+                };
+
+                try {
+                    // Transaktion in Firestore speichern
+                    const userPortfolioCollection = collection(db, `artifacts/${appId}/users/${userId}/portfolio`);
+                    await addDoc(userPortfolioCollection, newTransaction);
+                    console.log('Neue Transaktion erfolgreich hinzugefügt:', newTransaction);
+                    transactionModal.classList.add('hidden');
+                    addTransactionForm.reset();
+                } catch (error) {
+                    console.error('Fehler beim Hinzufügen der Transaktion:', error);
+                }
+            });
+
+            // Formular-Logik für Dividenden
+            addDividendForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const symbol = document.getElementById('dividend-symbol').value.toUpperCase();
+                const amount = parseFloat(document.getElementById('dividend-amount').value);
+                const shares = parseFloat(document.getElementById('dividend-shares').value);
+                const dividendDate = document.getElementById('dividend-date').value;
+                const companyName = getMockCompanyName(symbol);
+
+                const newDividend = {
+                    symbol: symbol,
+                    companyName: companyName,
+                    amount: amount * shares, // Gesamtdividende berechnen
+                    date: dividendDate,
+                    logoUrl: getMockLogoUrl(symbol)
+                };
+
+                try {
+                    const userDividendsCollection = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
+                    await addDoc(userDividendsCollection, newDividend);
+                    console.log('Neue Dividende erfolgreich hinzugefügt:', newDividend);
+                    dividendModal.classList.add('hidden');
+                    addDividendForm.reset();
+                } catch (error) {
+                    console.error('Fehler beim Hinzufügen der Dividende:', error);
+                }
+            });
+            
+            // Formular-Logik für Watchlist
+            addWatchlistForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const symbol = document.getElementById('watchlist-symbol').value.toUpperCase();
+                const companyName = getMockCompanyName(symbol);
+
+                const newWatchlistItem = {
+                    symbol: symbol,
+                    companyName: companyName,
+                    logoUrl: getMockLogoUrl(symbol),
+                    addedAt: new Date().toISOString()
+                };
+
+                try {
+                    const userWatchlistCollection = collection(db, `artifacts/${appId}/users/${userId}/watchlist`);
+                    await addDoc(userWatchlistCollection, newWatchlistItem);
+                    console.log('Aktie zur Watchlist hinzugefügt:', newWatchlistItem);
+                    watchlistModal.classList.add('hidden');
+                    addWatchlistForm.reset();
+                } catch (error) {
+                    console.error('Fehler beim Hinzufügen zur Watchlist:', error);
+                }
+            });
+
+            // Simulierte Datenimport-Logik mit Dividenden
+            importDataButton.addEventListener('click', () => {
+                const mockPortfolioData = [
+                    { symbol: 'AAPL', transactionType: 'buy', shares: 50, price: 150.00, date: '2023-01-10' },
+                    { symbol: 'MSFT', transactionType: 'buy', shares: 30, price: 280.50, date: '2023-01-15' },
+                    { symbol: 'GOOGL', transactionType: 'buy', shares: 10, price: 2500.00, date: '2023-02-01' },
+                    { symbol: 'AAPL', transactionType: 'sell', shares: 20, price: 160.00, date: '2023-02-20' }, // Verkaufs-Transaktion
+                ];
+
+                const mockDividendsData = [
+                    { symbol: 'AAPL', amountPerShare: 0.24, shares: 30, date: '2023-05-15' },
+                    { symbol: 'MSFT', amountPerShare: 0.68, shares: 30, date: '2023-04-20' },
+                    { symbol: 'AAPL', amountPerShare: 0.24, shares: 30, date: '2023-08-15' },
+                ];
+
+                mockPortfolioData.forEach(async (item) => {
+                    const currentPrice = item.price * (1 + (Math.random() - 0.5) * 0.2);
+                    const newTransaction = {
+                        symbol: item.symbol,
+                        companyName: getMockCompanyName(item.symbol),
+                        logoUrl: getMockLogoUrl(item.symbol),
+                        shares: item.transactionType === 'buy' ? item.shares : -item.shares,
+                        price: item.price,
+                        transactionType: item.transactionType,
+                        date: item.date,
+                        currentPrice: currentPrice
+                    };
+                    const userPortfolioCollection = collection(db, `artifacts/${appId}/users/${userId}/portfolio`);
+                    await addDoc(userPortfolioCollection, newTransaction);
+                });
+
+                mockDividendsData.forEach(async (item) => {
+                    const newDividend = {
+                        symbol: item.symbol,
+                        companyName: getMockCompanyName(item.symbol),
+                        amount: item.amountPerShare * item.shares,
+                        date: item.date,
+                        logoUrl: getMockLogoUrl(item.symbol)
+                    };
+                    const userDividendsCollection = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
+                    await addDoc(userDividendsCollection, newDividend);
+                });
+
+                console.log('Simulierter Datenimport abgeschlossen.');
+            });
+
+            // Firestore Echtzeit-Listener für Portfolio
+            const userPortfolioCollection = collection(db, `artifacts/${appId}/users/${userId}/portfolio`);
+            onSnapshot(userPortfolioCollection, async (querySnapshot) => {
+                const positions = {};
+                let totalValue = 0;
+
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const { symbol, shares, price, currentPrice } = data;
+
+                    if (!positions[symbol]) {
+                        positions[symbol] = {
+                            symbol,
+                            companyName: getMockCompanyName(symbol),
+                            logoUrl: getMockLogoUrl(symbol),
+                            totalShares: 0,
+                            totalCost: 0,
+                            currentPrice,
+                        };
+                    }
+
+                    positions[symbol].totalShares += shares;
+                    positions[symbol].totalCost += shares * price;
+                });
+                
+                const aggregatedPositions = Object.values(positions).filter(p => p.totalShares > 0).map(position => {
+                    position.averageBuyPrice = position.totalCost / position.totalShares;
+                    position.totalCurrentValue = position.totalShares * position.currentPrice;
+                    totalValue += position.totalCurrentValue;
+                    return position;
+                });
+                
+                portfolioTableBody.innerHTML = '';
+                aggregatedPositions.forEach((position) => {
+                    const { symbol, companyName, logoUrl, totalShares, averageBuyPrice, currentPrice, totalCurrentValue } = position;
+                    const profitLoss = (currentPrice - averageBuyPrice) * totalShares;
+                    const performance = (currentPrice / averageBuyPrice - 1) * 100;
+                    
+                    const simulatedIRR = (performance / 12).toFixed(2);
+
+                    const row = document.createElement('tr');
+                    row.classList.add('bg-white', 'dark:bg-gray-800', 'border-b', 'dark:border-gray-700', 'hover:bg-gray-50', 'dark:hover:bg-gray-600', 'cursor-pointer');
+                    row.innerHTML = `
+                        <td class="py-4 px-6"><img src="${logoUrl}" alt="${symbol} Logo" class="h-8 w-8 rounded-full"></td>
+                        <td class="py-4 px-6">${companyName}</td>
+                        <th scope="row" class="py-4 px-6 font-medium text-gray-900 dark:text-white whitespace-nowrap">${symbol}</th>
+                        <td class="py-4 px-6">${totalShares}</td>
+                        <td class="py-4 px-6">${formatCurrency(currentPrice)}</td>
+                        <td class="py-4 px-6">${formatCurrency(averageBuyPrice)}</td>
+                        <td class="py-4 px-6 ${profitLoss >= 0 ? 'text-green-500' : 'text-red-500'}">${formatCurrency(profitLoss)}</td>
+                        <td class="py-4 px-6 ${performance >= 0 ? 'text-green-500' : 'text-red-500'}">${performance.toFixed(2)}%</td>
+                        <td class="py-4 px-6 ${simulatedIRR >= 0 ? 'text-green-500' : 'text-red-500'}">${simulatedIRR}%</td>
+                    `;
+                    portfolioTableBody.appendChild(row);
+                });
+                totalValueDisplay.textContent = formatCurrency(totalValue);
+            });
+            
+            // Firestore Echtzeit-Listener für Watchlist
+            function fetchWatchlist() {
+                const userWatchlistCollection = collection(db, `artifacts/${appId}/users/${userId}/watchlist`);
+                onSnapshot(userWatchlistCollection, (querySnapshot) => {
+                    watchlistItems.innerHTML = '';
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const card = document.createElement('div');
+                        card.classList.add('bg-white', 'dark:bg-gray-800', 'p-4', 'rounded-lg', 'shadow-md', 'flex', 'items-center', 'justify-between');
+                        card.innerHTML = `
+                            <div class="flex items-center space-x-4">
+                                <img src="${data.logoUrl}" alt="${data.symbol} Logo" class="h-10 w-10 rounded-full">
+                                <div>
+                                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white">${data.companyName}</h4>
+                                    <p class="text-gray-500 dark:text-gray-400 text-sm">${data.symbol}</p>
+                                </div>
+                            </div>
+                            <button data-doc-id="${doc.id}" class="remove-watchlist-item p-2 text-red-500 hover:text-red-700">
+                                <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                            </button>
+                        `;
+                        watchlistItems.appendChild(card);
+                    });
+                    document.querySelectorAll('.remove-watchlist-item').forEach(button => {
+                        button.addEventListener('click', async (e) => {
+                            const docId = e.currentTarget.dataset.docId;
+                            const userWatchlistCollection = collection(db, `artifacts/${appId}/users/${userId}/watchlist`);
+                            await deleteDoc(doc(userWatchlistCollection, docId));
+                            console.log(`Watchlist-Eintrag ${docId} entfernt.`);
+                        });
+                    });
+                });
+            }
+            
+            // Firestore Echtzeit-Listener für Dividenden und Chart-Rendering
+            function fetchDividends() {
+                const userDividendsCollection = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
+                onSnapshot(userDividendsCollection, (querySnapshot) => {
+                    const dividends = [];
+                    let totalDividendsAmount = 0;
+                    dividendsTableBody.innerHTML = '';
+                    querySnapshot.forEach(doc => {
+                        const data = doc.data();
+                        dividends.push(data);
+                        totalDividendsAmount += data.amount;
+                    });
+
+                    // Sortieren nach Datum
+                    dividends.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                    // Tabelle rendern
+                    dividends.forEach(dividend => {
+                         const row = document.createElement('tr');
+                        row.classList.add('bg-white', 'dark:bg-gray-800', 'border-b', 'dark:border-gray-700');
+                        row.innerHTML = `
+                            <td class="py-4 px-6">${dividend.companyName}</td>
+                            <th scope="row" class="py-4 px-6 font-medium text-gray-900 dark:text-white whitespace-nowrap">${dividend.symbol}</th>
+                            <td class="py-4 px-6">${formatCurrency(dividend.amount)}</td>
+                            <td class="py-4 px-6">${dividend.date}</td>
+                        `;
+                        dividendsTableBody.appendChild(row);
+                    });
+                    
+                    totalDividendsDisplay.textContent = formatCurrency(totalDividendsAmount);
+
+                    // Chart nach dem Laden der Daten rendern
+                    renderDividendChart(dividends);
+                });
+            }
+            
+            // Simuliert das Abrufen von Nachrichten
+            function fetchNews() {
+                const mockNews = [
+                    {
+                        title: 'Apple stellt neue KI-Funktionen für iOS vor',
+                        summary: 'Apple kündigt auf der WWDC die Integration von generativer KI in seine Betriebssysteme an, was zu einem deutlichen Kursanstieg führt.',
+                        source: 'TechCrunch',
+                        date: '2023-06-11'
+                    },
+                    {
+                        title: 'Microsoft übernimmt Gaming-Studio',
+                        summary: 'Microsoft erweitert sein Spieleportfolio durch die Übernahme eines unabhängigen Entwicklerstudios, was die Position im Gaming-Markt stärkt.',
+                        source: 'Bloomberg',
+                        date: '2023-06-09'
+                    },
+                    {
+                        title: 'Alphabet investiert in Quantencomputing',
+                        summary: 'Die Muttergesellschaft von Google, Alphabet, gibt eine neue Initiative zur Erforschung und Entwicklung von Quantencomputern bekannt.',
+                        source: 'Wall Street Journal',
+                        date: '2023-06-10'
+                    }
+                ];
+
+                newsFeed.innerHTML = '';
+                mockNews.forEach(article => {
+                    const newsCard = document.createElement('div');
+                    newsCard.classList.add('p-4', 'bg-gray-50', 'dark:bg-gray-700', 'rounded-lg', 'shadow-sm');
+                    newsCard.innerHTML = `
+                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white">${article.title}</h4>
+                        <p class="text-gray-600 dark:text-gray-300 text-sm mt-1">${article.summary}</p>
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">Quelle: ${article.source} | Datum: ${article.date}</p>
+                    `;
+                    newsFeed.appendChild(newsCard);
+                });
+            }
+
+            // --- Chart.js für die Analyse ---
+            let performanceChart = null;
+            let dividendsChart = null;
+
+            function renderCharts() {
+                renderPerformanceChart();
+                // Die Dividenden werden bereits über den Firestore-Listener geladen und der Chart wird dort gerendert
+            }
+
+            function renderPerformanceChart() {
+                const ctx = document.getElementById('performance-chart').getContext('2d');
+                if (performanceChart) {
+                    performanceChart.destroy();
+                }
+
+                const labels = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun'];
+                const data = {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Depot-Performance',
+                            data: [10000, 10500, 11200, 10900, 11500, 12100],
+                            borderColor: 'rgb(79, 70, 229)',
+                            backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: 'Benchmark (DAX)',
+                            data: [10000, 10200, 10800, 10700, 11000, 11400],
+                            borderColor: 'rgb(107, 114, 128)',
+                            backgroundColor: 'rgba(107, 114, 128, 0.2)',
+                            tension: 0.3,
+                            fill: false
+                        }
+                    ]
+                };
+
+                const config = {
+                    type: 'line',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: document.body.classList.contains('dark') ? '#e2e8f0' : '#4a5568'
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: document.body.classList.contains('dark') ? '#a0aec0' : '#718096'
+                                },
+                                grid: {
+                                    color: document.body.classList.contains('dark') ? '#4a5568' : '#e2e8f0'
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    color: document.body.classList.contains('dark') ? '#a0aec0' : '#718096'
+                                },
+                                grid: {
+                                    color: document.body.classList.contains('dark') ? '#4a5568' : '#e2e8f0'
+                                }
+                            }
+                        }
+                    }
+                };
+                performanceChart = new Chart(ctx, config);
+            }
+
+            function renderDividendChart(dividendsData) {
+                const ctx = document.getElementById('dividends-chart').getContext('2d');
+                if (dividendsChart) {
+                    dividendsChart.destroy();
+                }
+
+                // Daten nach Jahr aggregieren
+                const yearlyDividends = dividendsData.reduce((acc, dividend) => {
+                    const year = new Date(dividend.date).getFullYear();
+                    acc[year] = (acc[year] || 0) + dividend.amount;
+                    return acc;
+                }, {});
+
+                const labels = Object.keys(yearlyDividends).sort();
+                const data = labels.map(year => yearlyDividends[year]);
+
+                const config = {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Jährliche Dividenden (€)',
+                            data: data,
+                            backgroundColor: 'rgba(16, 185, 129, 0.6)', // Tailwind's green-500 mit Transparenz
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Jahr',
+                                    color: document.body.classList.contains('dark') ? '#a0aec0' : '#718096'
+                                },
+                                ticks: {
+                                    color: document.body.classList.contains('dark') ? '#a0aec0' : '#718096'
+                                },
+                                grid: {
+                                    color: document.body.classList.contains('dark') ? '#4a5568' : '#e2e8f0'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Betrag (€)',
+                                    color: document.body.classList.contains('dark') ? '#a0aec0' : '#718096'
+                                },
+                                beginAtZero: true,
+                                ticks: {
+                                    color: document.body.classList.contains('dark') ? '#a0aec0' : '#718096'
+                                },
+                                grid: {
+                                    color: document.body.classList.contains('dark') ? '#4a5568' : '#e2e8f0'
+                                }
+                            }
+                        }
+                    }
+                };
+                dividendsChart = new Chart(ctx, config);
+            }
+
+            // Dark-Mode-Logik
+            themeToggleBtn.addEventListener('click', () => {
+                document.body.classList.toggle('dark');
+                // Charts neu rendern, um die Farben anzupassen
+                renderCharts();
+                fetchDividends();
+            });
+
+            // Hilfsfunktionen
+            function formatCurrency(value) {
+                return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value);
+            }
+
+            function getMockLogoUrl(symbol) {
+                const placeholder = {
+                    'AAPL': 'https://placehold.co/100x100/101010/ffffff?text=AAPL',
+                    'MSFT': 'https://placehold.co/100x100/2f2f2f/ffffff?text=MSFT',
+                    'GOOGL': 'https://placehold.co/100x100/3c3c3c/ffffff?text=GOOGL',
+                    'AMZN': 'https://placehold.co/100x100/4e4e4e/ffffff?text=AMZN'
+                };
+                return placeholder[symbol] || `https://placehold.co/100x100/5e5e5e/ffffff?text=${symbol}`;
+            }
+            
+            function getMockCompanyName(symbol) {
+                const names = {
+                    'AAPL': 'Apple Inc.',
+                    'MSFT': 'Microsoft Corp.',
+                    'GOOGL': 'Alphabet Inc.',
+                    'AMZN': 'Amazon.com Inc.'
+                };
+                return names[symbol] || symbol;
+            }
+
+            // Initiales Laden
+            fetchDividends(); // Wird auch den Chart rendern
+        }
+
+        // Starten der Firebase-Einrichtung beim Laden des Fensters
+        window.onload = setupFirebase;
+    </script>
+</body>
+</html>
