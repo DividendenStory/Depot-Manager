@@ -1,630 +1,1192 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  LineChart as RechartsLineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
+import {
+  Wallet,
+  FileUp,
+  FileDown,
+  TrendingUp,
+  BarChart as LucideBarChart,
+  Menu,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  List,
+  RefreshCcw,
+  Newspaper,
+  PieChart,
+} from 'lucide-react';
+import { Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip as ChartjsTooltip, Legend as ChartjsLegend, BarElement, CategoryScale, LinearScale } from 'chart.js';
+
+// Chart.js-Registrierung
+ChartJS.register(ArcElement, ChartjsTooltip, ChartjsLegend, BarElement, CategoryScale, LinearScale);
+
+// Firebase Imports
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signInWithCustomToken, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, addDoc, doc, setDoc } from 'firebase/firestore';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, setDoc, onSnapshot, collection, query, addDoc } from 'firebase/firestore';
 
-// AuthContext für Firebase-Dienste
-const AuthContext = createContext();
-
-// AuthProvider, der Firebase initialisiert und den Auth-Status verwaltet
-function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
+// Dies ist die Hauptkomponente, die das vollständige Dashboard darstellt.
+// Es wurde überarbeitet, um ein modernes, responsives Design mit einem kompakten, einklappbaren Menü zu bieten,
+// sowie um die Integration mit Firestore für Datenpersistenz und Echtzeitanalysen zu ermöglichen.
+export default function App() {
+  const [activePage, setActivePage] = useState('overview');
+  const [language, setLanguage] = useState('de');
+  const [isNavOpen, setIsNavOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [showImportSuccess, setShowImportSuccess] = useState(false);
+  
+  // Zustand für Firestore
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
-  const [appId, setAppId] = useState('');
+  const [userId, setUserId] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
+  const fileInputRef = useRef(null);
+
+  // Zustand für die Depotdaten (werden nun aus Firestore geladen)
+  const [depotData, setDepotData] = useState([]);
+  const [dividendsData, setDividendsData] = useState([]);
+  
+  // Neuer Zustand für die historische Dividendenentwicklung (Mock-Daten)
+  const [historicalDividends, setHistoricalDividends] = useState([]);
+
+  // Zustand für die Analyseergebnisse
+  const [analysis, setAnalysis] = useState({
+    countryDistribution: {},
+    sectorDistribution: {},
+    dividendSummary: {
+      total: 0,
+      daily: 0,
+      monthly: 0,
+      yearly: 0,
+    },
+    dividendFrequency: {
+      monthly: [],
+      quarterly: [],
+      semiAnnually: [],
+      annually: [],
+    },
+  });
+
+  // Zustand für die Prognose
+  const [forecast, setForecast] = useState([]);
+
+  // Mock-Daten für den Nachrichtenbereich
+  const [newsData] = useState([
+    {
+      id: 1,
+      title: 'Alphabet meldet starkes Quartalsergebnis',
+      summary: 'Die Quartalszahlen von Alphabet übertreffen die Erwartungen der Analysten, angetrieben durch das Wachstum im Cloud-Geschäft und der Online-Werbung.',
+      source: 'FinanzNachrichten',
+      date: '2024-06-25',
+    },
+    {
+      id: 2,
+      title: 'Apple kündigt neue KI-Funktionen für iOS an',
+      summary: 'Auf der WWDC-Konferenz hat Apple eine Reihe neuer KI-gesteuerter Funktionen vorgestellt, die in das kommende Betriebssystem integriert werden.',
+      source: 'TechWelt',
+      date: '2024-06-24',
+    },
+    {
+      id: 3,
+      title: 'Tesla: Neue Gigafactory in Planung',
+      summary: 'Gerüchte verdichten sich, dass Tesla den Bau einer weiteren Produktionsstätte in Europa in Betracht zieht, um die steigende Nachfrage zu decken.',
+      source: 'Auto-Industrie-News',
+      date: '2024-06-23',
+    },
+    {
+      id: 4,
+      title: 'Microsoft übernimmt führendes Software-Startup',
+      summary: 'Durch die strategische Übernahme eines auf KI spezialisierten Unternehmens stärkt Microsoft seine Position im Bereich der Unternehmenslösungen.',
+      source: 'Wirtschaftsblatt',
+      date: '2024-06-22',
+    },
+    {
+      id: 5,
+      title: 'Siemens investiert in grüne Technologien',
+      summary: 'Die Siemens AG verkündet eine Milliarde Euro Investition in nachhaltige Energielösungen und E-Mobilität, um das ESG-Profil zu stärken.',
+      source: 'Handelsblatt',
+      date: '2024-06-21',
+    },
+  ]);
+
+  // Translations-Objekt für die verschiedenen Sprachversionen
+  const translations = {
+    de: {
+      appTitle: 'Depot-Manager',
+      menu: {
+        overview: 'Depot-Übersicht',
+        dividends: 'Dividenden',
+        analysis: 'Analyse',
+        forecast: 'Prognose',
+        orderbook: 'Orderbuch',
+        news: 'Nachrichten',
+      },
+      overview: {
+        title: 'Depot-Übersicht',
+        totalValue: 'Gesamtwert des Depots',
+        profitLoss: 'Gesamtgewinn / -verlust',
+        totalReturn: 'Gesamtrendite',
+        tableHeaders: {
+          company: 'Unternehmen',
+          wkn: 'WKN',
+          symbol: 'Symbol',
+          quantity: 'Stückzahl',
+          entryPrice: 'Einstiegskurs',
+          currentPrice: 'Aktueller Kurs',
+          profitLoss: 'Gewinn/Verlust',
+          portfolioShare: 'Anteil im Depot',
+        },
+      },
+      import: {
+        title: 'Import',
+        description: 'Laden Sie hier eine CSV- oder JSON-Datei hoch, um Ihre Transaktionen zu importieren.',
+        button: 'Import',
+        filePlaceholder: 'Keine Datei ausgewählt',
+        success: 'Datei erfolgreich importiert!',
+      },
+      export: {
+        title: 'Export',
+        description: 'Exportieren Sie Ihre Depotdaten als CSV oder JSON-Datei.',
+        button: 'Export',
+      },
+      dividends: {
+        title: 'Dividenden',
+        description: 'Dieser Abschnitt zeigt eine Übersicht über Ihre erhaltenen Dividenden.',
+        total: 'Gesamtsumme der Dividenden',
+      },
+      analysis: {
+        title: 'Analyse',
+        description: 'Dieser Bereich bietet detaillierte Analysen und Kennzahlen zu Ihrem Portfolio.',
+        portfolioOverview: 'Aufteilung des Depots',
+        currentYearDevelopment: 'Entwicklung im aktuellen Jahr',
+        allTimeDevelopment: 'Entwicklung im gesamten Zeitraum',
+        countryDistribution: 'Verteilung nach Ländern',
+        sectorDistribution: 'Verteilung nach Sektoren',
+        dividendFrequency: 'Dividendenzahler-Frequenz',
+        dividendChanges: 'Dividendenanpassungen pro Jahr',
+      },
+      forecast: {
+        title: 'Prognose',
+        description: 'Hier können Sie Prognosen und Simulationen für die zukünftige Wertentwicklung Ihres Depots durchführen.',
+        titleToday: 'Tagesprognose',
+        titleMonth: 'Monatsprognose',
+        titleYear: 'Jahresprognose',
+      },
+      orderbook: {
+        title: 'Orderbuch',
+        description: 'In diesem Abschnitt werden Ihre offenen und ausgeführten Orders angezeigt.',
+      },
+      news: {
+        title: 'Nachrichten',
+        description: 'Aktuelle Nachrichten, die für Ihr Depot relevant sind.',
+      },
+      misc: {
+        userId: 'Benutzer-ID',
+        loading: 'Daten werden geladen...',
+        emptyData: 'Keine Daten vorhanden. Bitte importieren Sie Ihre Transaktionen.',
+      },
+    },
+    en: {
+      appTitle: 'Depot-Manager',
+      menu: {
+        overview: 'Depot Overview',
+        dividends: 'Dividends',
+        analysis: 'Analysis',
+        forecast: 'Forecast',
+        orderbook: 'Order Book',
+        news: 'News',
+      },
+      overview: {
+        title: 'Depot Overview',
+        totalValue: 'Total Portfolio Value',
+        profitLoss: 'Total Profit / Loss',
+        totalReturn: 'Total Return',
+        tableHeaders: {
+          company: 'Company',
+          wkn: 'WKN',
+          symbol: 'Symbol',
+          quantity: 'Quantity',
+          entryPrice: 'Entry Price',
+          currentPrice: 'Current Price',
+          profitLoss: 'Profit/Loss',
+          portfolioShare: 'Portfolio Share',
+        },
+      },
+      import: {
+        title: 'Import',
+        description: 'Upload a CSV or JSON file here to import your transactions.',
+        button: 'Import',
+        filePlaceholder: 'No file selected',
+        success: 'File imported successfully!',
+      },
+      export: {
+        title: 'Export',
+        description: 'Export your portfolio data as a CSV or JSON file.',
+        button: 'Export',
+      },
+      dividends: {
+        title: 'Dividends',
+        description: 'This section shows an overview of your received dividends.',
+        total: 'Total Dividends',
+      },
+      analysis: {
+        title: 'Analysis',
+        description: 'This area offers detailed analyses and key figures for your portfolio.',
+        portfolioOverview: 'Portfolio Breakdown',
+        currentYearDevelopment: 'Current Year Development',
+        allTimeDevelopment: 'All-Time Development',
+        countryDistribution: 'Distribution by Country',
+        sectorDistribution: 'Distribution by Sector',
+        dividendFrequency: 'Dividend Payer Frequency',
+        dividendChanges: 'Dividend Adjustments by Year',
+      },
+      forecast: {
+        title: 'Forecast',
+        description: 'Here you can perform forecasts and simulations for the future performance of your portfolio.',
+        titleToday: 'Daily Forecast',
+        titleMonth: 'Monthly Forecast',
+        titleYear: 'Yearly Forecast',
+      },
+      orderbook: {
+        title: 'Order Book',
+        description: 'This section displays your open and executed orders.',
+      },
+      news: {
+        title: 'News',
+        description: 'Current news relevant to your portfolio.',
+      },
+      misc: {
+        userId: 'User ID',
+        loading: 'Loading data...',
+        emptyData: 'No data available. Please import your transactions.',
+      },
+    },
+  };
+  
+  const t = translations[language];
+  
+  // Mock-Daten für das Depot, jetzt mit Sektor- und Länderinformationen
+  const mockInitialDepotData = [
+    {
+      unternehmen: 'Alphabet Inc. Class A',
+      wkn: 'A14Y6F',
+      symbol: 'GOOGL',
+      stueckzahl: 10,
+      einstiegskurs: 120.50,
+      aktuellerKurs: 175.80,
+      land: 'USA',
+      sektor: 'Technologie',
+      dividende: 'jährlich',
+    },
+    {
+      unternehmen: 'Apple Inc.',
+      wkn: '865985',
+      symbol: 'AAPL',
+      stueckzahl: 25,
+      einstiegskurs: 150.20,
+      aktuellerKurs: 215.10,
+      land: 'USA',
+      sektor: 'Technologie',
+      dividende: 'quartalsweise',
+    },
+    {
+      unternehmen: 'Tesla Inc.',
+      wkn: 'A1CX3T',
+      symbol: 'TSLA',
+      stueckzahl: 5,
+      einstiegskurs: 250.00,
+      aktuellerKurs: 230.50,
+      land: 'USA',
+      sektor: 'Automobil',
+      dividende: 'keine',
+    },
+    {
+      unternehmen: 'Microsoft Corp.',
+      wkn: '870747',
+      symbol: 'MSFT',
+      stueckzahl: 15,
+      einstiegskurs: 280.75,
+      aktuellerKurs: 460.90,
+      land: 'USA',
+      sektor: 'Technologie',
+      dividende: 'quartalsweise',
+    },
+    {
+      unternehmen: 'Siemens AG',
+      wkn: '723610',
+      symbol: 'SIE',
+      stueckzahl: 20,
+      einstiegskurs: 105.00,
+      aktuellerKurs: 165.40,
+      land: 'Deutschland',
+      sektor: 'Industrie',
+      dividende: 'jährlich',
+    },
+    {
+      unternehmen: 'LVMH Moët Hennessy',
+      wkn: '853517',
+      symbol: 'MC',
+      stueckzahl: 3,
+      einstiegskurs: 550.00,
+      aktuellerKurs: 720.00,
+      land: 'Frankreich',
+      sektor: 'Konsumgüter',
+      dividende: 'halbjährlich',
+    },
+  ];
+
+  // Mock-Daten für Dividenden
+  const mockInitialDividendsData = [
+    { company: 'Apple Inc.', amount: 15.25, date: '2024-05-15' },
+    { company: 'Microsoft Corp.', amount: 25.50, date: '2024-05-20' },
+    { company: 'Alphabet Inc. Class A', amount: 10.00, date: '2024-04-25' },
+    { company: 'Microsoft Corp.', amount: 25.50, date: '2024-02-20' },
+  ];
+  
+  // Mock-Daten für Dividendenänderungen (neu hinzugefügt)
+  const mockHistoricalDividends = [
+    { company: 'Apple Inc.', year: 2024, change: '+5', type: 'increase' },
+    { company: 'Microsoft Corp.', year: 2024, change: '+10', type: 'increase' },
+    { company: 'Tesla Inc.', year: 2024, change: '+0', type: 'unchanged' }, // Keine Dividende
+    { company: 'Siemens AG', year: 2024, change: '-15', type: 'decrease' },
+    { company: 'LVMH Moët Hennessy', year: 2024, change: '+5', type: 'increase' },
+    { company: 'Apple Inc.', year: 2023, change: '+3', type: 'increase' },
+    { company: 'Microsoft Corp.', year: 2023, change: '+8', type: 'increase' },
+    { company: 'Siemens AG', year: 2023, change: '+2', type: 'increase' },
+  ];
+
+  // Mock-Daten für die Depotentwicklung (Recharts)
+  const generateMockRechartsData = () => {
+    const totalValue = mockInitialDepotData.reduce((acc, stock) => acc + (stock.aktuellerKurs * stock.stueckzahl), 0);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    
+    // Generiere historische Daten für den gesamten Zeitraum
+    const history = [];
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(now.getFullYear() - 2, now.getMonth() - i * 1, 1); // Monatliche Daten über 2 Jahre
+      const value = totalValue * (1 + (Math.sin(i / 10) * 0.1 + (i / 100)));
+      history.push({ date: date.toLocaleDateString('de-DE', { year: 'numeric', month: 'short' }), value: Math.round(value) });
+    }
+    history.sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+    // Generiere historische Daten für das aktuelle Jahr
+    const currentYearHistory = [];
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(currentYear, i, 1);
+      const value = (totalValue - 5000) + (Math.random() * 10000); // Zufällige Werte für das aktuelle Jahr
+      currentYearHistory.push({ date: date.toLocaleDateString('de-DE', { month: 'short' }), value: Math.round(value) });
+    }
+    
+    // Passe die Daten für die Balkendiagramme an
+    const stocksBarData = mockInitialDepotData.map(stock => ({
+      name: stock.unternehmen,
+      'Aktueller Wert': stock.aktuellerKurs * stock.stueckzahl,
+    }));
+
+    return { stocksBarData, history, currentYearHistory };
+  };
+
+  const [rechartsData, setRechartsData] = useState({
+    stocksBarData: [],
+    history: [],
+    currentYearHistory: []
+  });
+
+  const [summary, setSummary] = useState({
+    gesamtwert: 0,
+    gesamtgewinnVerlust: 0,
+    gesamtrendite: 0,
+  });
+
+  // useEffect für die Firebase-Initialisierung und Authentifizierung
   useEffect(() => {
+    // Initialisierung nur einmal ausführen
+    if (db || auth) return;
+
     try {
       const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-      const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-      const currentAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
       const app = initializeApp(firebaseConfig);
-      const _auth = getAuth(app);
-      const _db = getFirestore(app);
+      const firestore = getFirestore(app);
+      const firebaseAuth = getAuth(app);
+      setDb(firestore);
+      setAuth(firebaseAuth);
 
-      setDb(_db);
-      setAuth(_auth);
-      setAppId(currentAppId);
-
-      const handleAuth = async () => {
-        if (initialAuthToken) {
-          await signInWithCustomToken(_auth, initialAuthToken);
-        } else {
-          await signInAnonymously(_auth);
+      const authenticate = async () => {
+        try {
+          const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+          if (token) {
+            await signInWithCustomToken(firebaseAuth, token);
+          } else {
+            await signInAnonymously(firebaseAuth);
+          }
+        } catch (error) {
+          console.error("Firebase Auth Error:", error);
         }
       };
 
-      handleAuth();
-
-      const unsubscribe = onAuthStateChanged(_auth, (currentUser) => {
-        setUser(currentUser);
-        setAuthReady(true);
+      onAuthStateChanged(firebaseAuth, (user) => {
+        if (user) {
+          setUserId(user.uid);
+          setIsAuthReady(true);
+        } else {
+          // If no user is signed in, try to sign in.
+          authenticate();
+        }
       });
-
-      return () => unsubscribe();
-    } catch (e) {
-      console.error("Firebase initialization failed:", e);
-      setAuthReady(true);
+    } catch (error) {
+      console.error("Failed to initialize Firebase:", error);
     }
-  }, []);
+  }, [db, auth]);
 
-  return (
-    <AuthContext.Provider value={{ user, authReady, db, auth, appId }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
+  // useEffect für das Abrufen der Daten aus Firestore
+  useEffect(() => {
+    if (!isAuthReady || !userId || !db) return;
 
-// Hilfsfunktionen für Berechnungen
-const calculateIRR = (cashFlows) => {
-  let guess = 0.1;
-  const maxIterations = 100;
-  const tolerance = 0.0001;
-  for (let i = 0; i < maxIterations; i++) {
-    let npv = cashFlows.reduce((sum, cf, index) => sum + cf / Math.pow(1 + guess, index), 0);
-    let derivative = cashFlows.reduce((sum, cf, index) => sum - index * cf / Math.pow(1 + guess, index + 1), 0);
-    let nextGuess = guess - npv / derivative;
-    if (Math.abs(nextGuess - guess) < tolerance) {
-      return nextGuess * 100;
-    }
-    guess = nextGuess;
-  }
-  return null;
-};
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const depotColRef = collection(db, `artifacts/${appId}/users/${userId}/depotData`);
+    const dividendsColRef = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
 
-const calculateMetrics = (portfolio) => {
-  return portfolio.map(item => {
-    const currentPrice = item.purchasePrice * 1.15;
-    const gainLoss = (currentPrice - item.purchasePrice) * item.quantity;
-    const investment = item.purchasePrice * item.quantity;
-    const yieldPercentage = (gainLoss / investment) * 100;
-    const cashFlows = [-investment, gainLoss];
-    const irr = calculateIRR(cashFlows);
-    return { ...item, currentPrice, gainLoss, yieldPercentage, irr };
-  });
-};
-
-// UI-Komponenten
-const Tab = ({ label, active, onClick }) => (
-  <button
-    className={`p-3 font-semibold text-sm transition-colors duration-200 ${
-      active ? 'bg-indigo-600 text-white shadow-inner' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-    }`}
-    onClick={onClick}
-  >
-    {label}
-  </button>
-);
-
-function Header({ title, onTitleChange, user, onLogout }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [newTitle, setNewTitle] = useState(title);
-
-  const handleTitleBlur = () => {
-    onTitleChange(newTitle);
-    setIsEditing(false);
-  };
-
-  return (
-    <div className="flex justify-between items-center p-4 bg-gray-800 text-white rounded-t-lg shadow-lg">
-      {isEditing ? (
-        <input
-          type="text"
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-          onBlur={handleTitleBlur}
-          className="text-2xl font-bold bg-transparent border-b border-white focus:outline-none"
-        />
-      ) : (
-        <h1 onClick={() => setIsEditing(true)} className="text-2xl font-bold cursor-pointer">{title}</h1>
-      )}
-      {user && (
-        <div className="flex items-center space-x-4">
-          <span className="text-sm">Hallo, {user.email || 'Gast'}</span>
-          <button onClick={onLogout} className="bg-red-500 text-white py-1 px-3 rounded-full text-sm hover:bg-red-600 transition-colors">
-            Abmelden
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Login() {
-  const { auth, db, appId } = useContext(AuthContext);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleAuthAction = async (e) => {
-    e.preventDefault();
-    setError('');
-    try {
-      if (isRegistering) {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const userDocRef = doc(db, `artifacts/${appId}/users/${userCredential.user.uid}/profile/info`);
-        await setDoc(userDocRef, { email: email });
+    // Listener für Depotdaten
+    const unsubscribeDepot = onSnapshot(depotColRef, (snapshot) => {
+      const fetchedData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Wenn die Datenbank leer ist, laden wir die Mock-Daten hoch
+      if (fetchedData.length === 0) {
+        mockInitialDepotData.forEach(item => addDoc(depotColRef, item));
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        setDepotData(fetchedData);
+        setIsLoading(false);
       }
-    } catch (e) {
-      setError(e.message);
+    }, (error) => {
+      console.error("Error fetching depot data:", error);
+      setIsLoading(false);
+    });
+
+    // Listener für Dividendendaten
+    const unsubscribeDividends = onSnapshot(dividendsColRef, (snapshot) => {
+      const fetchedData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      if (fetchedData.length === 0) {
+        mockInitialDividendsData.forEach(item => addDoc(dividendsColRef, item));
+      } else {
+        setDividendsData(fetchedData);
+      }
+    }, (error) => {
+      console.error("Error fetching dividends data:", error);
+    });
+
+    // Neue Daten für die historische Dividendenentwicklung setzen
+    setHistoricalDividends(mockHistoricalDividends);
+    setRechartsData(generateMockRechartsData());
+
+    return () => {
+      unsubscribeDepot();
+      unsubscribeDividends();
+    };
+  }, [isAuthReady, userId, db]);
+  
+  // useEffect für die Berechnung der Zusammenfassung und Analysen
+  useEffect(() => {
+    if (depotData.length === 0) {
+      setSummary({ gesamtwert: 0, gesamtgewinnVerlust: 0, gesamtrendite: 0 });
+      setAnalysis({
+        countryDistribution: {},
+        sectorDistribution: {},
+        dividendSummary: { total: 0, daily: 0, monthly: 0, yearly: 0 },
+        dividendFrequency: { monthly: [], quarterly: [], semiAnnually: [], annually: [] },
+      });
+      return;
+    }
+
+    let totalDepotValue = 0;
+    let totalProfitLoss = 0;
+    let totalCostBasis = 0;
+    let countryDistribution = {};
+    let sectorDistribution = {};
+    let dividendFrequency = {
+      monthly: [],
+      quarterly: [],
+      semiAnnually: [],
+      annually: [],
+    };
+
+    depotData.forEach(item => {
+      const currentMarketValue = item.stueckzahl * item.aktuellerKurs;
+      const profitLoss = item.stueckzahl * (item.aktuellerKurs - item.einstiegskurs);
+      const costBasis = item.stueckzahl * item.einstiegskurs;
+      
+      totalDepotValue += currentMarketValue;
+      totalProfitLoss += profitLoss;
+      totalCostBasis += costBasis;
+
+      // Verteilung nach Ländern berechnen
+      countryDistribution[item.land] = (countryDistribution[item.land] || 0) + currentMarketValue;
+      
+      // Verteilung nach Sektoren berechnen
+      sectorDistribution[item.sektor] = (sectorDistribution[item.sektor] || 0) + currentMarketValue;
+      
+      // Dividendenzahler nach Frequenz sortieren
+      if (item.dividende) {
+        switch (item.dividende.toLowerCase()) {
+          case 'monatlich':
+            dividendFrequency.monthly.push(item.unternehmen);
+            break;
+          case 'quartalsweise':
+            dividendFrequency.quarterly.push(item.unternehmen);
+            break;
+          case 'halbjährlich':
+            dividendFrequency.semiAnnually.push(item.unternehmen);
+            break;
+          case 'jährlich':
+            dividendFrequency.annually.push(item.unternehmen);
+            break;
+          default:
+            break;
+        }
+      }
+    });
+
+    const totalReturn = totalCostBasis > 0 ? (totalProfitLoss / totalCostBasis) * 100 : 0;
+    const totalDividends = dividendsData.reduce((sum, d) => sum + d.amount, 0);
+
+    setSummary({
+      gesamtwert: totalDepotValue,
+      gesamtgewinnVerlust: totalProfitLoss,
+      gesamtrendite: totalReturn,
+    });
+
+    setAnalysis({
+      countryDistribution,
+      sectorDistribution,
+      dividendSummary: {
+        total: totalDividends,
+        // Einfache Mock-Berechnungen für Tages-, Monats- und Jahresdividenden
+        daily: totalDividends > 0 ? (totalDividends / 365) : 0,
+        monthly: totalDividends > 0 ? (totalDividends / 12) : 0,
+        yearly: totalDividends,
+      },
+      dividendFrequency,
+    });
+
+    // Einfache beispielhafte Prognose-Logik (Mock)
+    const mockForecast = [
+      { timeframe: '1 Monat', value: totalDepotValue * 1.015 },
+      { timeframe: '6 Monate', value: totalDepotValue * 1.08 },
+      { timeframe: '1 Jahr', value: totalDepotValue * 1.15 },
+      { timeframe: '5 Jahre', value: totalDepotValue * 2.05 },
+    ];
+    setForecast(mockForecast);
+
+  }, [depotData, dividendsData]);
+  
+  const handleExport = () => {
+    // Exportiert alle vorhandenen Daten
+    const dataToExport = {
+      depotData: depotData,
+      dividendsData: dividendsData,
+      historicalDividends: historicalDividends,
+      analysis: analysis,
+      forecast: forecast,
+    };
+    const dataStr = JSON.stringify(dataToExport, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'depot-manager-daten.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
+  const handleFileChange = (event) => {
+    // Hier würde die Logik zum Parsen der Datei stehen.
+    // Beispiel: const file = event.target.files[0];
+    setShowImportSuccess(true);
+  };
+
+  const renderIcon = (key) => {
+    switch (key) {
+      case 'overview': return <LucideBarChart />;
+      case 'dividends': return <Wallet />;
+      case 'orderbook': return <List />;
+      case 'analysis': return <PieChart />;
+      case 'forecast': return <TrendingUp />;
+      case 'news': return <Newspaper />;
+      default: return null;
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-sm w-full">
-        <h2 className="text-2xl font-bold text-center mb-6">{isRegistering ? 'Registrieren' : 'Anmelden'}</h2>
-        <form onSubmit={handleAuthAction} className="space-y-4">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="E-Mail"
-            required
-            className="w-full p-3 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Passwort"
-            required
-            className="w-full p-3 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          {error && <div className="text-red-400 text-sm">{error}</div>}
-          <button type="submit" className="w-full bg-indigo-600 text-white p-3 rounded font-semibold hover:bg-indigo-700 transition-colors">
-            {isRegistering ? 'Registrieren' : 'Anmelden'}
-          </button>
-        </form>
-        <button
-          onClick={() => setIsRegistering(!isRegistering)}
-          className="w-full mt-4 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
-        >
-          {isRegistering ? 'Haben Sie bereits ein Konto? Anmelden' : 'Noch kein Konto? Jetzt registrieren'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function DepotUebersicht({ portfolio, onSelectCompany }) {
-  const totalValue = portfolio.reduce((sum, item) => sum + item.currentPrice * item.quantity, 0);
-
-  return (
-    <div className="p-4 bg-gray-800 text-white rounded-lg shadow-lg">
-      <h2 className="text-xl font-bold mb-4">Gesamtwert des Depots: <span className="text-2xl text-green-400 font-extrabold">{totalValue.toFixed(2)} €</span></h2>
-      <table className="min-w-full divide-y divide-gray-700">
-        <thead className="bg-gray-700">
-          <tr>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300"></th>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300">WKN / Symbol</th>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300">Stückzahl</th>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300">Gewinn/Verlust</th>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300">Rendite</th>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300">IRR</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-700">
-          {portfolio.map((item) => (
-            <tr key={item.id} className="hover:bg-gray-700 transition-colors cursor-pointer" onClick={() => onSelectCompany(item.symbol)}>
-              <td className="py-2 px-4 whitespace-nowrap">
-                <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center text-xs">
-                  {item.symbol.substring(0, 2)}
-                </div>
-              </td>
-              <td className="py-2 px-4 whitespace-nowrap font-medium text-indigo-400">{item.symbol}</td>
-              <td className="py-2 px-4 whitespace-nowrap">{item.quantity}</td>
-              <td className={`py-2 px-4 whitespace-nowrap ${item.gainLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>{item.gainLoss.toFixed(2)} €</td>
-              <td className="py-2 px-4 whitespace-nowrap">{item.yieldPercentage.toFixed(2)} %</td>
-              <td className="py-2 px-4 whitespace-nowrap">{item.irr ? `${item.irr.toFixed(2)} %` : 'N/A'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function Analyse() {
-  const chartData = [
-    { name: 'Jan', value: 400 },
-    { name: 'Feb', value: 300 },
-    { name: 'Mär', value: 600 },
-    { name: 'Apr', value: 800 },
-    { name: 'Mai', value: 700 },
-  ];
-
-  const forecastData = [
-    { name: 'Jun', value: 950 },
-    { name: 'Jul', value: 1100 },
-  ];
-
-  return (
-    <div className="p-4 bg-gray-800 text-white rounded-lg shadow-lg">
-      <h2 className="text-xl font-bold mb-4">Depot-Performance-Visualisierung</h2>
-      <div className="h-64 bg-gray-700 rounded-lg flex items-center justify-center mb-4">
-        <span className="text-gray-400">Placeholder für ein Performance-Diagramm</span>
-      </div>
-      <h3 className="text-lg font-semibold mb-2">Prognose</h3>
-      <div className="h-32 bg-gray-700 rounded-lg flex items-center justify-center mb-4">
-        <span className="text-gray-400">Placeholder für Prognosen (Depot- & Dividendenentwicklung)</span>
-      </div>
-      <h3 className="text-lg font-semibold mb-2">Manuelle Position hinzufügen</h3>
-      <form className="space-y-4">
-        <input type="text" placeholder="Symbol (z.B. GOOGL)" className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <input type="number" placeholder="Stückzahl" className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <input type="number" step="0.01" placeholder="Einstandskurs" className="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <button type="submit" className="w-full bg-indigo-600 text-white p-2 rounded font-semibold hover:bg-indigo-700 transition-colors">
-          Position hinzufügen
-        </button>
-      </form>
-    </div>
-  );
-}
-
-function Unternehmensprofil({ company, onClose }) {
-  const metrics = {
-    eps: company.symbol === 'GOOGL' ? '5.62' : '3.14',
-    kgv: company.symbol === 'GOOGL' ? '25.3' : '18.9',
-    kbv: company.symbol === 'GOOGL' ? '7.1' : '4.5',
-    freeCashflow: company.symbol === 'GOOGL' ? '65.2 B €' : '32.1 B €',
-    verbindlichkeiten: company.symbol === 'GOOGL' ? '29.8 B €' : '15.5 B €',
-  };
-
-  return (
-    <div className="p-4 bg-gray-800 text-white rounded-lg shadow-lg">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Unternehmensprofil: {company.symbol}</h2>
-        <button onClick={onClose} className="bg-gray-600 text-white py-1 px-3 rounded-full text-sm hover:bg-gray-500 transition-colors">
-          Schließen
-        </button>
-      </div>
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold">Wichtige Kennzahlen</h3>
-          <ul className="list-disc list-inside space-y-1 mt-2">
-            <li>Gewinn pro Aktie (EPS): <span className="font-semibold">{metrics.eps}</span></li>
-            <li>Kurs-Gewinn-Verhältnis (KGV): <span className="font-semibold">{metrics.kgv}</span></li>
-            <li>Kurs-Buchwert-Verhältnis (KBV): <span className="font-semibold">{metrics.kbv}</span></li>
-            <li>Free Cashflow: <span className="font-semibold">{metrics.freeCashflow}</span></li>
-            <li>Verbindlichkeiten: <span className="font-semibold">{metrics.verbindlichkeiten}</span></li>
-          </ul>
+  const renderOverview = () => (
+    <div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col justify-between transform transition-transform hover:scale-105 duration-200">
+          <p className="text-gray-600 text-lg mb-2">{t.overview.totalValue}</p>
+          <p className="text-3xl sm:text-4xl font-bold text-gray-900">
+            {summary.gesamtwert.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: 'EUR' })}
+          </p>
         </div>
-        <div>
-          <h3 className="text-lg font-semibold">Kommentare</h3>
-          <div className="bg-gray-700 p-3 rounded-lg mt-2 space-y-2">
-            <div className="text-sm text-gray-400">
-              <span className="font-semibold text-white">Max Mustermann:</span> Tolle Kennzahlen, das sieht vielversprechend aus.
-            </div>
-            <div className="text-sm text-gray-400">
-              <span className="font-semibold text-white">Erika Musterfrau:</span> Ich warte noch auf eine günstigere Einstiegsgelegenheit.
+        <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col justify-between transform transition-transform hover:scale-105 duration-200">
+          <p className="text-gray-600 text-lg mb-2">{t.overview.profitLoss}</p>
+          <p className={`text-3xl sm:text-4xl font-bold ${summary.gesamtgewinnVerlust >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {summary.gesamtgewinnVerlust.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: 'EUR' })}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col justify-between transform transition-transform hover:scale-105 duration-200">
+          <p className="text-gray-600 text-lg mb-2">{t.overview.totalReturn}</p>
+          <p className={`text-3xl sm:text-4xl font-bold ${summary.gesamtrendite >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {summary.gesamtrendite.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { maximumFractionDigits: 2 })}%
+          </p>
+        </div>
+      </div>
+      
+      <div className="bg-white rounded-xl shadow-lg overflow-x-auto">
+        <table className="min-w-full border-collapse">
+          <thead className="bg-gray-200">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-800">{t.overview.tableHeaders.company}</th>
+              <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-800 hidden md:table-cell">{t.overview.tableHeaders.wkn}</th>
+              <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-800">{t.overview.tableHeaders.symbol}</th>
+              <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-800">{t.overview.tableHeaders.quantity}</th>
+              <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-800 hidden lg:table-cell">{t.overview.tableHeaders.entryPrice}</th>
+              <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-800">{t.overview.tableHeaders.currentPrice}</th>
+              <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-800">{t.overview.tableHeaders.profitLoss}</th>
+              <th className="px-4 py-3 text-left text-xs sm:text-sm font-semibold text-gray-800 hidden md:table-cell">{t.overview.tableHeaders.portfolioShare}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {depotData.map((item, index) => {
+              const currentValue = item.stueckzahl * item.aktuellerKurs;
+              const profitLoss = item.stueckzahl * (item.aktuellerKurs - item.einstiegskurs);
+              const depotShare = summary.gesamtwert > 0 ? (currentValue / summary.gesamtwert) * 100 : 0;
+              return (
+                <tr key={index} className="hover:bg-gray-100 transition-colors duration-200">
+                  <td className="px-4 py-3 text-xs sm:text-sm text-gray-900 truncate" title={item.unternehmen}>{item.unternehmen}</td>
+                  <td className="px-4 py-3 text-xs sm:text-sm text-gray-700 hidden md:table-cell">{item.wkn}</td>
+                  <td className="px-4 py-3 text-xs sm:text-sm text-gray-700">{item.symbol}</td>
+                  <td className="px-4 py-3 text-xs sm:text-sm text-gray-700">{item.stueckzahl}</td>
+                  <td className="px-4 py-3 text-xs sm:text-sm text-gray-700 hidden lg:table-cell">
+                    {item.einstiegskurs.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: 'EUR' })}
+                  </td>
+                  <td className="px-4 py-3 text-xs sm:text-sm text-gray-700">
+                    {item.aktuellerKurs.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: 'EUR' })}
+                  </td>
+                  <td className={`px-4 py-3 text-xs sm:text-sm font-semibold ${profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {profitLoss.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: 'EUR' })}
+                  </td>
+                  <td className="px-4 py-3 text-xs sm:text-sm text-gray-700 hidden md:table-cell">
+                    {depotShare.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { maximumFractionDigits: 2 })}%
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderDividendChangesChart = () => {
+    // Gruppiert die Daten nach Jahr
+    const years = [...new Set(historicalDividends.map(item => item.year))].sort();
+    const companies = [...new Set(historicalDividends.map(item => item.company))];
+  
+    // Erstellt ein Label-Array, das Unternehmen und Jahre kombiniert
+    const labels = companies;
+
+    // Generiert die Datensätze für Erhöhungen und Senkungen
+    const increaseData = labels.map(company => {
+      const entry = historicalDividends.find(d => d.company === company && d.type === 'increase');
+      return entry ? parseFloat(entry.change) : 0;
+    });
+
+    const decreaseData = labels.map(company => {
+      const entry = historicalDividends.find(d => d.company === company && d.type === 'decrease');
+      return entry ? parseFloat(entry.change) : 0;
+    });
+
+    const chartData = {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Erhöhung (%)',
+          data: increaseData,
+          backgroundColor: '#10B981', // green-500
+          stack: 'stack1',
+        },
+        {
+          label: 'Senkung (%)',
+          data: decreaseData,
+          backgroundColor: '#EF4444', // red-500
+          stack: 'stack1',
+        },
+      ],
+    };
+  
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: true,
+        },
+        y: {
+          stacked: true,
+          beginAtZero: true,
+        },
+      },
+    };
+  
+    return (
+      <div className="relative h-96">
+        <Bar data={chartData} options={options} />
+      </div>
+    );
+  };
+  
+  const renderAnalysis = () => {
+    const generatePieChartData = (distribution, title) => {
+      const labels = Object.keys(distribution);
+      const data = Object.values(distribution);
+      const backgroundColors = labels.map((_, i) => `hsl(${i * 60}, 70%, 50%)`);
+
+      return {
+        labels,
+        datasets: [{
+          label: title,
+          data,
+          backgroundColor: backgroundColors,
+          hoverOffset: 4,
+          borderWidth: 1,
+          borderColor: '#ffffff',
+        }],
+      };
+    };
+
+    const sectorData = generatePieChartData(analysis.sectorDistribution, t.analysis.sectorDistribution);
+    const countryData = generatePieChartData(analysis.countryDistribution, t.analysis.countryDistribution);
+    
+    return (
+      <div className="p-8 bg-white rounded-xl shadow-lg space-y-10">
+        <h2 className="text-3xl font-bold text-gray-900 mb-4">{t.analysis.title}</h2>
+        
+        {/* Neue Sektion: Grafische Darstellung des Depots */}
+        <div className="bg-gray-50 p-6 rounded-xl shadow-sm border border-gray-200">
+          <h3 className="text-2xl font-semibold mb-4 text-gray-800">{t.analysis.portfolioOverview}</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart
+              data={rechartsData.stocksBarData}
+              layout="vertical"
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis type="number" stroke="#6b7280" />
+              <YAxis dataKey="name" type="category" stroke="#6b7280" width={100} />
+              <Tooltip formatter={(value, name) => [`${value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}`, name]} />
+              <Legend />
+              <Bar dataKey="Aktueller Wert" fill="#1e90ff" name="Aktueller Wert" radius={[10, 10, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        
+        {/* Neue Sektion: Entwicklung des Depots (Diagramme) */}
+        <div className="bg-gray-50 p-6 rounded-xl shadow-sm border border-gray-200">
+          <h3 className="text-2xl font-semibold mb-4 text-gray-800">{t.analysis.currentYearDevelopment}</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <RechartsLineChart data={rechartsData.currentYearHistory} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="date" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
+              <Tooltip formatter={(value, name) => [`${value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}`, name]} />
+              <Legend />
+              <Line type="monotone" dataKey="value" stroke="#34d399" name="Depotwert" activeDot={{ r: 8 }} />
+            </RechartsLineChart>
+          </ResponsiveContainer>
+        </div>
+        
+        <div className="bg-gray-50 p-6 rounded-xl shadow-sm border border-gray-200">
+          <h3 className="text-2xl font-semibold mb-4 text-gray-800">{t.analysis.allTimeDevelopment}</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <RechartsLineChart data={rechartsData.history} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="date" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
+              <Tooltip formatter={(value, name) => [`${value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}`, name]} />
+              <Legend />
+              <Line type="monotone" dataKey="value" stroke="#60a5fa" name="Depotwert" activeDot={{ r: 8 }} />
+            </RechartsLineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Bisherige Analysen: Sektor, Land, Dividenden */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+          <div>
+            <h3 className="text-2xl font-semibold mb-4 text-gray-800">{t.analysis.sectorDistribution}</h3>
+            <div className="relative h-64 md:h-96">
+              <Pie data={sectorData} options={{ responsive: true, maintainAspectRatio: false }} />
             </div>
           </div>
-          <textarea placeholder="Fügen Sie einen neuen Kommentar hinzu..." className="w-full p-2 mt-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-          <button className="mt-2 bg-indigo-600 text-white p-2 rounded font-semibold hover:bg-indigo-700 transition-colors">
-            Kommentar senden
-          </button>
+          <div>
+            <h3 className="text-2xl font-semibold mb-4 text-gray-800">{t.analysis.countryDistribution}</h3>
+            <div className="relative h-64 md:h-96">
+              <Pie data={countryData} options={{ responsive: true, maintainAspectRatio: false }} />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <h3 className="text-2xl font-semibold mb-4 text-gray-800">{t.dividends.title}</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-green-100 p-4 rounded-lg shadow-sm text-center">
+              <p className="text-sm text-green-800">Gesamt</p>
+              <p className="text-xl font-bold text-green-900">
+                {analysis.dividendSummary.total.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: 'EUR' })}
+              </p>
+            </div>
+            <div className="bg-blue-100 p-4 rounded-lg shadow-sm text-center">
+              <p className="text-sm text-blue-800">Jährlich</p>
+              <p className="text-xl font-bold text-blue-900">
+                {analysis.dividendSummary.yearly.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: 'EUR' })}
+              </p>
+            </div>
+            <div className="bg-yellow-100 p-4 rounded-lg shadow-sm text-center">
+              <p className="text-sm text-yellow-800">Monatlich (Ø)</p>
+              <p className="text-xl font-bold text-yellow-900">
+                {analysis.dividendSummary.monthly.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: 'EUR' })}
+              </p>
+            </div>
+            <div className="bg-red-100 p-4 rounded-lg shadow-sm text-center">
+              <p className="text-sm text-red-800">Täglich (Ø)</p>
+              <p className="text-xl font-bold text-red-900">
+                {analysis.dividendSummary.daily.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: 'EUR' })}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-8">
+          <h3 className="text-2xl font-semibold mb-4 text-gray-800">{t.analysis.dividendChanges}</h3>
+          {renderDividendChangesChart()}
+        </div>
+
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <h3 className="text-2xl font-semibold mb-4 text-gray-800">{t.analysis.dividendFrequency}</h3>
+            <div className="space-y-4">
+              <div className="bg-gray-100 p-4 rounded-lg shadow-sm">
+                <p className="font-medium text-gray-900">Monatlich</p>
+                <ul className="list-disc list-inside mt-2 text-gray-700">
+                  {analysis.dividendFrequency.monthly.length > 0 ? (
+                    analysis.dividendFrequency.monthly.map((company, i) => <li key={i}>{company}</li>)
+                  ) : (
+                    <li>Keine monatlichen Zahler</li>
+                  )}
+                </ul>
+              </div>
+              <div className="bg-gray-100 p-4 rounded-lg shadow-sm">
+                <p className="font-medium text-gray-900">Quartalsweise</p>
+                <ul className="list-disc list-inside mt-2 text-gray-700">
+                  {analysis.dividendFrequency.quarterly.length > 0 ? (
+                    analysis.dividendFrequency.quarterly.map((company, i) => <li key={i}>{company}</li>)
+                  ) : (
+                    <li>Keine quartalsweisen Zahler</li>
+                  )}
+                </ul>
+              </div>
+              <div className="bg-gray-100 p-4 rounded-lg shadow-sm">
+                <p className="font-medium text-gray-900">Halbjährlich</p>
+                <ul className="list-disc list-inside mt-2 text-gray-700">
+                  {analysis.dividendFrequency.semiAnnually.length > 0 ? (
+                    analysis.dividendFrequency.semiAnnually.map((company, i) => <li key={i}>{company}</li>)
+                  ) : (
+                    <li>Keine halbjährlichen Zahler</li>
+                  )}
+                </ul>
+              </div>
+              <div className="bg-gray-100 p-4 rounded-lg shadow-sm">
+                <p className="font-medium text-gray-900">Jährlich</p>
+                <ul className="list-disc list-inside mt-2 text-gray-700">
+                  {analysis.dividendFrequency.annually.length > 0 ? (
+                    analysis.dividendFrequency.annually.map((company, i) => <li key={i}>{company}</li>)
+                  ) : (
+                    <li>Keine jährlichen Zahler</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  };
 
-function Dividenden() {
-  const dividends = [
-    { symbol: 'AAPL', date: '15.05.2024', amount: '0.24 €', status: 'gezahlt' },
-    { symbol: 'MSFT', date: '20.05.2024', amount: '0.75 €', status: 'gezahlt' },
-    { symbol: 'GOOGL', date: '25.05.2024', amount: '0.50 €', status: 'erwartet' },
-  ];
-
-  return (
-    <div className="p-4 bg-gray-800 text-white rounded-lg shadow-lg">
-      <h2 className="text-xl font-bold mb-4">Dividenden-Übersicht</h2>
-      <table className="min-w-full divide-y divide-gray-700">
-        <thead className="bg-gray-700">
-          <tr>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300">Unternehmen</th>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300">Auszahlungsdatum</th>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300">Betrag pro Aktie</th>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300">Status</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-700">
-          {dividends.map((div, index) => (
-            <tr key={index} className="hover:bg-gray-700 transition-colors">
-              <td className="py-2 px-4 whitespace-nowrap">{div.symbol}</td>
-              <td className="py-2 px-4 whitespace-nowrap">{div.date}</td>
-              <td className="py-2 px-4 whitespace-nowrap">{div.amount}</td>
-              <td className="py-2 px-4 whitespace-nowrap">{div.status}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function News() {
-  const newsItems = [
-    { company: 'GOOGL', title: 'Alphabet meldet starkes Quartal', source: 'FinanzNachrichten' },
-    { company: 'MSFT', title: 'Microsoft plant neue KI-Initiativen', source: 'Tech Daily' },
-    { company: 'TSLA', title: 'Tesla senkt Preise in Europa', source: 'Autonews' },
-  ];
-
-  return (
-    <div className="p-4 bg-gray-800 text-white rounded-lg shadow-lg">
-      <h2 className="text-xl font-bold mb-4">Aktuelle Nachrichten</h2>
+  const renderForecast = () => (
+    <div className="p-8 bg-white rounded-xl shadow-lg">
+      <h2 className="text-3xl font-bold text-gray-900 mb-4">{t.forecast.title}</h2>
+      <p className="text-gray-700 mb-8">{t.forecast.description}</p>
+      
       <div className="space-y-4">
-        {newsItems.map((news, index) => (
-          <div key={index} className="p-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
-            <h3 className="font-semibold text-lg">{news.title}</h3>
-            <p className="text-gray-400 text-sm">Unternehmen: {news.company} | Quelle: {news.source}</p>
+        {forecast.map((item, index) => (
+          <div key={index} className="flex justify-between items-center bg-gray-100 p-4 rounded-lg shadow-sm">
+            <span className="font-semibold text-gray-900 text-lg">{item.timeframe}</span>
+            <div className="flex items-center">
+              <TrendingUp size={24} className="text-green-500 mr-2" />
+              <span className="text-green-600 font-bold text-xl">
+                {item.value.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: 'EUR' })}
+              </span>
+            </div>
           </div>
         ))}
       </div>
     </div>
   );
-}
-
-function Watchlist() {
-  const watchlistItems = [
-    { symbol: 'AMZN', price: '185.00 €', change: '+1.5%' },
-    { symbol: 'NVDA', price: '950.00 €', change: '-2.1%' },
-    { symbol: 'SMCI', price: '890.00 €', change: '+3.4%' },
-  ];
-
-  return (
-    <div className="p-4 bg-gray-800 text-white rounded-lg shadow-lg">
-      <h2 className="text-xl font-bold mb-4">Watchlist</h2>
-      <table className="min-w-full divide-y divide-gray-700">
-        <thead className="bg-gray-700">
-          <tr>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300">Symbol</th>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300">Kurs</th>
-            <th className="py-2 px-4 text-left text-sm font-medium text-gray-300">Änderung</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-700">
-          {watchlistItems.map((item, index) => (
-            <tr key={index} className="hover:bg-gray-700 transition-colors">
-              <td className="py-2 px-4 whitespace-nowrap">{item.symbol}</td>
-              <td className="py-2 px-4 whitespace-nowrap">{item.price}</td>
-              <td className="py-2 px-4 whitespace-nowrap">{item.change}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+  
+  const renderOrderbook = () => (
+    <div className="p-8 bg-white rounded-xl shadow-lg">
+      <h2 className="text-3xl font-bold text-gray-900 mb-4">{t.orderbook.title}</h2>
+      <p className="text-gray-700">{t.orderbook.description}</p>
     </div>
   );
-}
 
-function Personalisierung({ onBackgroundChange, onThemeChange, currentTheme }) {
-  const themes = ['hell', 'dunkel', 'blau'];
-  const [backgroundUrl, setBackgroundUrl] = useState('');
-
-  const handleUrlChange = (e) => {
-    setBackgroundUrl(e.target.value);
-  };
-
-  const handleSaveBackground = () => {
-    onBackgroundChange(backgroundUrl);
-  };
-
-  return (
-    <div className="p-4 bg-gray-800 text-white rounded-lg shadow-lg">
-      <h2 className="text-xl font-bold mb-4">Personalisierung</h2>
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Hintergrundbild</h3>
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              placeholder="Bild-URL eingeben..."
-              value={backgroundUrl}
-              onChange={handleUrlChange}
-              className="flex-grow p-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <button onClick={handleSaveBackground} className="bg-indigo-600 text-white p-2 rounded font-semibold hover:bg-indigo-700 transition-colors">
-              Speichern
-            </button>
+  const renderNews = () => (
+    <div className="p-8 bg-white rounded-xl shadow-lg">
+      <h2 className="text-3xl font-bold text-gray-900 mb-4">{t.news.title}</h2>
+      <p className="text-gray-700 mb-8">{t.news.description}</p>
+      
+      <div className="space-y-6">
+        {newsData.map(newsItem => (
+          <div key={newsItem.id} className="bg-gray-50 p-6 rounded-xl border-l-4 border-blue-500 shadow-sm">
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">{newsItem.title}</h3>
+            <p className="text-gray-700 mb-4">{newsItem.summary}</p>
+            <div className="flex justify-between text-sm text-gray-500">
+              <span>Quelle: {newsItem.source}</span>
+              <span>Datum: {newsItem.date}</span>
+            </div>
           </div>
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Farbschema</h3>
-          <div className="flex space-x-2">
-            {themes.map(theme => (
-              <button
-                key={theme}
-                onClick={() => onThemeChange(theme)}
-                className={`p-3 rounded-full w-12 h-12 flex items-center justify-center font-semibold border-2 transition-colors ${
-                  theme === 'hell' ? 'bg-white text-black border-gray-300' :
-                  theme === 'dunkel' ? 'bg-gray-900 text-white border-gray-700' :
-                  'bg-blue-600 text-white border-blue-400'
-                } ${currentTheme === theme ? 'ring-2 ring-offset-2 ring-indigo-500' : ''}`}
-              >
-                {/* Visualisierung des Themas */}
-              </button>
-            ))}
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );
-}
 
-function OtherTabs({ tabName }) {
-  return (
-    <div className="p-4 bg-gray-800 text-white rounded-lg shadow-lg">
-      <h2 className="text-xl font-bold mb-4">{tabName}</h2>
-      <p className="text-gray-400">
-        Hier wird die Funktionalität für "{tabName}" implementiert.
-        <br />
-        (Placeholder für detaillierte Auswertungen, Historie, etc.)
-      </p>
-    </div>
-  );
-}
-
-function AppContent() {
-  const { user, db, auth, appId } = useContext(AuthContext);
-  const [activeTab, setActiveTab] = useState('Depot-Übersicht');
-  const [portfolio, setPortfolio] = useState([]);
-  const [appTitle, setAppTitle] = useState('Depot-Manager');
-  const [theme, setTheme] = useState('dunkel');
-  const [background, setBackground] = useState('');
-  const [selectedCompany, setSelectedCompany] = useState(null);
-
-  useEffect(() => {
-    if (db && user && appId) {
-      const colRef = collection(db, `artifacts/${appId}/users/${user.uid}/portfolio`);
-      const unsubscribe = onSnapshot(colRef, (snapshot) => {
-        const items = [];
-        snapshot.forEach(doc => {
-          items.push({ ...doc.data(), id: doc.id });
-        });
-        setPortfolio(calculateMetrics(items));
-      }, (error) => {
-        console.error("Error fetching portfolio:", error);
-      });
-      return () => unsubscribe();
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center p-20">
+          <RefreshCcw className="animate-spin text-gray-500" size={48} />
+          <span className="ml-4 text-xl text-gray-500">{t.misc.loading}</span>
+        </div>
+      );
     }
-  }, [db, user, appId]);
 
-  const addMockData = async () => {
-    if (db && user && appId) {
-      const colRef = collection(db, `artifacts/${appId}/users/${user.uid}/portfolio`);
-      await addDoc(colRef, { symbol: 'AAPL', quantity: 10, purchasePrice: 150 });
-      await addDoc(colRef, { symbol: 'GOOGL', quantity: 5, purchasePrice: 2000 });
-      await addDoc(colRef, { symbol: 'MSFT', quantity: 20, purchasePrice: 300 });
+    if (depotData.length === 0) {
+      return (
+        <div className="p-8 bg-white rounded-xl shadow-lg text-center">
+          <p className="text-gray-600 text-lg">{t.misc.emptyData}</p>
+        </div>
+      );
     }
-  };
-
-  const handleLogout = async () => {
-    if (auth) {
-      await auth.signOut();
-    }
-  };
-
-  const handleTitleChange = (newTitle) => {
-    setAppTitle(newTitle);
-  };
-
-  const handleThemeChange = (newTheme) => {
-    setTheme(newTheme);
-  };
-
-  const handleBackgroundChange = (newBackground) => {
-    setBackground(newBackground);
-  };
-
-  const handleSelectCompany = (symbol) => {
-    setSelectedCompany({ symbol });
-    setActiveTab('Unternehmensprofil');
-  };
-
-  const handleCloseCompanyProfile = () => {
-    setSelectedCompany(null);
-    setActiveTab('Depot-Übersicht');
-  };
-
-  let content;
-  if (selectedCompany && activeTab === 'Unternehmensprofil') {
-    content = <Unternehmensprofil company={selectedCompany} onClose={handleCloseCompanyProfile} />;
-  } else {
-    switch (activeTab) {
-      case 'Depot-Übersicht':
-        content = <DepotUebersicht portfolio={portfolio} onSelectCompany={handleSelectCompany} />;
-        break;
-      case 'Analyse':
-        content = <Analyse />;
-        break;
-      case 'Dividenden':
-        content = <Dividenden />;
-        break;
-      case 'Nachrichten':
-        content = <News />;
-        break;
-      case 'Watchlist':
-        content = <Watchlist />;
-        break;
-      case 'Personalisierung':
-        content = <Personalisierung onBackgroundChange={handleBackgroundChange} onThemeChange={handleThemeChange} currentTheme={theme} />;
-        break;
-      case 'Historie':
-      case 'Jahresauswertung':
+    
+    switch (activePage) {
+      case 'overview':
+        return renderOverview();
+      case 'dividends':
+        return (
+          <div className="p-8 bg-white rounded-xl shadow-lg">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">{t.dividends.title}</h2>
+            <p className="text-gray-700">{t.dividends.description}</p>
+            <div className="mt-6">
+              <h3 className="text-xl font-semibold mb-2">Empfangene Dividenden</h3>
+              <ul className="space-y-2">
+                {dividendsData.map((d, i) => (
+                  <li key={i} className="flex justify-between items-center bg-gray-100 p-3 rounded-lg">
+                    <span>{d.company} - {new Date(d.date).toLocaleDateString()}</span>
+                    <span className="font-medium text-green-600">{d.amount.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        );
+      case 'orderbook':
+        return renderOrderbook();
+      case 'analysis':
+        return renderAnalysis();
+      case 'forecast':
+        return renderForecast();
+      case 'news':
+        return renderNews();
       default:
-        content = <OtherTabs tabName={activeTab} />;
+        return null;
     }
-  }
-
-  const themeClasses = {
-    dunkel: 'bg-gray-900 text-gray-200',
-    hell: 'bg-gray-100 text-gray-800',
-    blau: 'bg-blue-900 text-blue-200',
   };
-
-  const backgroundImageStyle = background ? { backgroundImage: `url(${background})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {};
+  
+  // Array zur Festlegung der Reihenfolge der Menüpunkte
+  const orderedMenuKeys = ['overview', 'dividends', 'orderbook', 'analysis', 'forecast', 'news'];
 
   return (
-    <div className={`min-h-screen p-4 transition-colors ${themeClasses[theme]}`} style={backgroundImageStyle}>
-      <div className="max-w-7xl mx-auto rounded-lg shadow-2xl overflow-hidden backdrop-filter backdrop-blur-md bg-opacity-70 bg-gray-800">
-        <Header title={appTitle} onTitleChange={handleTitleChange} user={user} onLogout={handleLogout} />
-        <div className="flex flex-col md:flex-row">
-          <nav className="flex flex-wrap md:flex-col p-2 space-x-1 md:space-x-0 md:space-y-1 bg-gray-900 rounded-b-lg md:rounded-b-none md:rounded-l-lg">
-            {['Depot-Übersicht', 'Analyse', 'Dividenden', 'Historie', 'Jahresauswertung', 'Nachrichten', 'Watchlist', 'Personalisierung'].map(tab => (
-              <Tab key={tab} label={tab} active={activeTab === tab} onClick={() => {
-                setActiveTab(tab);
-                setSelectedCompany(null);
-              }} />
-            ))}
-          </nav>
-          <main className="flex-1 p-4 rounded-b-lg md:rounded-b-none md:rounded-r-lg">
-            {content}
-            <div className="mt-4 p-4 bg-gray-700 rounded-lg text-white">
-              <h3 className="text-lg font-semibold mb-2">Benchmarkvergleich</h3>
-              <p className="text-gray-400">
-                (Placeholder für ein Diagramm, das die Depot-Performance mit Indizes wie dem S&P 500 vergleicht.)
-              </p>
-            </div>
-            <div className="mt-4 p-4 bg-gray-700 rounded-lg text-white">
-              <h3 className="text-lg font-semibold mb-2">Social Sharing</h3>
-              <p className="text-gray-400">
-                (Placeholder für Instagram- und WhatsApp-Schnittstellen zum Teilen von Diagrammen und News.)
-              </p>
-            </div>
-            <button onClick={addMockData} className="mt-4 bg-gray-500 text-white p-2 rounded hover:bg-gray-600 transition-colors">
-              Mock-Daten laden
-            </button>
-          </main>
+    <div className="flex min-h-screen bg-gray-100 text-gray-900 font-['Comfortaa']">
+      <style>
+        {`
+        @import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;600;700&display=swap');
+        body {
+          font-family: 'Comfortaa', cursive;
+        }
+        `}
+      </style>
+      
+      <div className="md:hidden flex items-center justify-between p-4 bg-slate-900 shadow-xl sticky top-0 z-10">
+        <div className="flex items-center">
+          <span className="text-xl font-bold text-white">{t.appTitle}</span>
+        </div>
+        <button onClick={() => setIsNavOpen(!isNavOpen)} className="text-slate-300 hover:text-white">
+          {isNavOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      <div
+        className={`fixed inset-y-0 left-0 transform ${isNavOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0
+          transition-all duration-300 ease-in-out md:flex flex-col shadow-xl z-20
+          ${isSidebarCollapsed ? 'md:w-16' : 'md:w-56'} bg-slate-900 p-4`}
+      >
+        <div className="flex items-center justify-between mb-8">
+          <div className={`${isSidebarCollapsed ? 'hidden' : 'flex'} items-center`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-300" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 3a1 1 0 011-1h2a1 1 0 011 1v13a1 1 0 01-1 1h-2a1 1 0 01-1-1V3z" />
+            </svg>
+          </div>
+
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="hidden md:block text-slate-300 hover:text-white transition-colors duration-200"
+          >
+            {isSidebarCollapsed ? <ChevronRight size={24} /> : <ChevronLeft size={24} />}
+          </button>
+
+          <button onClick={() => setIsNavOpen(!isNavOpen)} className="md:hidden text-slate-300 hover:text-white">
+            {isNavOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
+        
+        <nav className="flex-1">
+          <ul className="space-y-2">
+            {orderedMenuKeys.map(key => {
+              const isActive = activePage === key;
+              return (
+                <li key={key}>
+                  <button
+                    onClick={() => {
+                      setActivePage(key);
+                      setIsNavOpen(false);
+                    }}
+                    className={`flex items-center w-full rounded-lg transition-all duration-300
+                      ${isSidebarCollapsed ? 'justify-center p-2' : 'px-4 py-3'}
+                      ${isActive
+                        ? 'bg-gradient-to-r from-cyan-500 to-blue-700 text-white shadow-md'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                  >
+                    <span className={`${isSidebarCollapsed ? 'mr-0' : 'mr-3'} text-blue-300`}>
+                      {renderIcon(key)}
+                    </span>
+                    <span className={`font-medium ${isSidebarCollapsed ? 'hidden' : 'block'}`}>
+                      {t.menu[key]}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+        
+        <div className={`mt-auto ${isSidebarCollapsed ? 'px-0' : ''}`}>
+          <button
+            onClick={() => setLanguage(language === 'de' ? 'en' : 'de')}
+            className={`w-full text-sm font-semibold rounded-lg text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors duration-200
+              ${isSidebarCollapsed ? 'p-2 text-center' : 'px-4 py-3'}`}
+          >
+            {isSidebarCollapsed ? (language === 'de' ? 'EN' : 'DE') : (language === 'de' ? 'Sprache wechseln zu Deutsch' : 'Switch to English')}
+          </button>
         </div>
       </div>
+
+      <main className={`flex-1 p-6 md:p-8 overflow-y-auto transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'md:ml-16' : 'md:ml-56'}`}>
+        
+        <h1 className="text-4xl md:text-5xl font-bold text-center mb-6 text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-700">
+          {t.appTitle}
+        </h1>
+        
+        {userId && (
+          <div className="text-center text-sm text-gray-500 mb-6">
+            <span className="font-semibold">{t.misc.userId}:</span> {userId}
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-10">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+          />
+
+          <button
+            className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-500 transition-colors duration-200"
+            onClick={() => fileInputRef.current.click()}
+          >
+            <div className="flex items-center">
+              <FileUp size={20} className="mr-2" />
+              {t.import.button}
+            </div>
+          </button>
+          
+          <button
+            className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-500 transition-colors duration-200"
+            onClick={handleExport}
+          >
+            <div className="flex items-center">
+              <FileDown size={20} className="mr-2" />
+              {t.export.button}
+            </div>
+          </button>
+        </div>
+        
+        {showImportSuccess && (
+          <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+            <div className="bg-white p-8 rounded-xl shadow-lg max-w-sm w-full text-center">
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">Erfolg!</h3>
+              <p className="text-gray-700 mb-6">{t.import.success}</p>
+              <button
+                className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-500"
+                onClick={() => setShowImportSuccess(false)}
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        )}
+
+        <header className="mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-blue-700 capitalize">
+            {t.menu[activePage]}
+          </h1>
+        </header>
+
+        {renderContent()}
+      </main>
     </div>
-  );
-}
-
-function MainApp() {
-  const { user, authReady } = useContext(AuthContext);
-
-  if (!authReady) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-        Lade...
-      </div>
-    );
-  }
-
-  return user ? <AppContent /> : <Login />;
-}
-
-export default function App() {
-  return (
-    <AuthProvider>
-      <MainApp />
-    </AuthProvider>
   );
 }
