@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Depot-Manager</title>
+    <title>Depot-Manager mit Chat und Analyse</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js für die Diagramme -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -55,6 +57,11 @@
             transform: translateY(-50%);
             transition: transform 0.2s;
         }
+        .clickable-symbol {
+            cursor: pointer;
+            text-decoration: underline;
+            color: #4f46e5;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
@@ -81,6 +88,22 @@
                 </button>
             </div>
         </header>
+        
+        <!-- NEUER IMPORT-BEREICH -->
+        <div class="p-4 rounded-lg bg-white dark:bg-gray-800 shadow-custom mb-6 transition-colors duration-300">
+            <h2 class="text-xl font-semibold mb-2">Daten importieren</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Laden Sie Ihre Transaktionen oder Dividenden als CSV- oder PDF-Datei hoch.</p>
+            <div class="flex flex-wrap gap-4 items-center">
+                <label for="file-input" class="cursor-pointer px-4 py-2 bg-blue-500 text-white font-medium rounded-md hover:bg-blue-600 transition-colors duration-200">
+                    Datei auswählen
+                </label>
+                <input type="file" id="file-input" class="hidden" accept=".csv, .pdf">
+                <span id="file-name" class="text-sm text-gray-500 dark:text-gray-400">Keine Datei ausgewählt.</span>
+                <button id="btn-process-file" class="hidden px-4 py-2 bg-indigo-500 text-white font-medium rounded-md hover:bg-indigo-600 transition-colors duration-200">
+                    Datei verarbeiten
+                </button>
+            </div>
+        </div>
 
         <!-- Tab-Navigation -->
         <div class="flex border-b border-gray-300 dark:border-gray-700 mb-6 overflow-x-auto">
@@ -89,6 +112,7 @@
             <button id="tab-dividends" class="tab-button px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Dividenden</button>
             <button id="tab-analysis" class="tab-button px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Analyse</button>
             <button id="tab-news" class="tab-button px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Nachrichten</button>
+            <button id="tab-chat" class="tab-button px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Chat</button>
         </div>
 
         <!-- Inhaltsbereich -->
@@ -96,12 +120,19 @@
             <!-- Übersicht-Tab -->
             <div id="content-overview" class="tab-content block">
                 <div class="p-6 rounded-lg shadow-custom bg-white dark:bg-gray-800 transition-colors duration-300">
-                    <h2 class="text-xl font-semibold mb-4">Mein Depot</h2>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Keine Transaktionen gefunden. Beginne mit dem Hinzufügen von Daten.</p>
-                    <div class="mt-6 flex flex-wrap gap-4">
-                        <button id="btn-import" class="px-4 py-2 bg-blue-500 text-white font-medium rounded-md hover:bg-blue-600 transition-colors duration-200">Daten importieren</button>
-                        <button id="btn-add-transaction" class="px-4 py-2 bg-green-500 text-white font-medium rounded-md hover:bg-green-600 transition-colors duration-200">Transaktion hinzufügen</button>
+                    <!-- Flex-Container für Überschrift und Button -->
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold">Mein Depot</h2>
+                        <button id="btn-add-transaction" class="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-md hover:bg-green-600 transition-colors duration-200">Transaktion hinzufügen</button>
                     </div>
+
+                    <div id="depot-summary" class="mb-6">
+                        <!-- Depot-Zusammenfassung wird hier gerendert -->
+                    </div>
+                    <div id="overview-transactions-container">
+                        <!-- Transaktionstabelle wird hier gerendert -->
+                    </div>
+                    <p id="overview-placeholder" class="text-sm text-gray-600 dark:text-gray-400">Keine Transaktionen gefunden. Beginne mit dem Hinzufügen von Daten.</p>
                 </div>
             </div>
 
@@ -109,7 +140,14 @@
             <div id="content-watchlist" class="tab-content hidden">
                 <div class="p-6 rounded-lg shadow-custom bg-white dark:bg-gray-800 transition-colors duration-300">
                     <h2 class="text-xl font-semibold mb-4">Watchlist</h2>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Hier können Sie Aktien hinzufügen, die Sie beobachten möchten.</p>
+                    <form id="watchlist-form" class="flex flex-col sm:flex-row gap-2 mb-4">
+                        <input type="text" id="watchlist-symbol-input" placeholder="Symbol hinzufügen (z.B. AAPL)" class="flex-grow rounded-md border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        <button type="submit" class="px-4 py-2 bg-blue-500 text-white font-medium rounded-md hover:bg-blue-600 transition-colors duration-200">Hinzufügen</button>
+                    </form>
+                    <ul id="watchlist-list" class="space-y-2">
+                        <!-- Watchlist-Symbole werden hier gerendert -->
+                    </ul>
+                    <p id="watchlist-placeholder" class="text-sm text-gray-600 dark:text-gray-400">Hier können Sie Aktien hinzufügen, die Sie beobachten möchten.</p>
                 </div>
             </div>
 
@@ -117,16 +155,33 @@
             <div id="content-dividends" class="tab-content hidden">
                 <div class="p-6 rounded-lg shadow-custom bg-white dark:bg-gray-800 transition-colors duration-300">
                     <h2 class="text-xl font-semibold mb-4">Dividenden</h2>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Hier sehen Sie eine Übersicht Ihrer Dividendenzahlungen.</p>
+                    <p id="dividends-placeholder" class="text-sm text-gray-600 dark:text-gray-400">Hier sehen Sie eine Übersicht Ihrer Dividendenzahlungen. Importieren Sie eine Datei, um zu beginnen.</p>
+                    <div id="dividends-container" class="mt-4">
+                        <!-- Dividendenzahlungen werden hier gerendert -->
+                    </div>
                     <button id="btn-add-dividend" class="mt-6 px-4 py-2 bg-yellow-500 text-white font-medium rounded-md hover:bg-yellow-600 transition-colors duration-200">Dividendenzahlung hinzufügen</button>
                 </div>
             </div>
 
-            <!-- Analyse-Tab -->
+            <!-- Analyse-Tab (Aktualisiert) -->
             <div id="content-analysis" class="tab-content hidden">
                 <div class="p-6 rounded-lg shadow-custom bg-white dark:bg-gray-800 transition-colors duration-300">
-                    <h2 class="text-xl font-semibold mb-4">Analyse</h2>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Detaillierte Einblicke in Ihr Portfolio.</p>
+                    <h2 class="text-xl font-semibold mb-4">Portfolio-Analyse</h2>
+                    <div class="mb-8 w-full">
+                        <canvas id="portfolio-chart" class="w-full h-80"></canvas>
+                    </div>
+                    
+                    <h3 class="text-lg font-semibold mb-2">Bemerkungen zur Analyse</h3>
+                    <div id="analysis-comments-container" class="space-y-4 max-h-64 overflow-y-auto pr-2">
+                        <!-- Analyse-Kommentare werden hier gerendert -->
+                    </div>
+
+                    <form id="analysis-comment-form" class="mt-4 flex flex-col space-y-2">
+                        <input type="email" id="analysis-comment-email" placeholder="Ihre E-Mail-Adresse" class="p-2 rounded-md border border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                        <textarea id="analysis-comment-text" placeholder="Ihre Bemerkung..." rows="3" class="p-2 rounded-md border border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" required></textarea>
+                        <button type="submit" class="px-4 py-2 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 transition-colors duration-200">Bemerkung hinzufügen</button>
+                        <p id="analysis-comment-error" class="text-sm text-red-600 dark:text-red-400 hidden"></p>
+                    </form>
                 </div>
             </div>
 
@@ -136,6 +191,15 @@
                     <h2 class="text-xl font-semibold mb-4">Nachrichten</h2>
                     <p id="news-status" class="text-sm text-gray-600 dark:text-gray-400">Nachrichten werden geladen...</p>
                     <div id="news-list" class="mt-4 space-y-4"></div>
+                </div>
+            </div>
+            
+            <!-- Chat-Tab (Neu hinzugefügt) -->
+            <div id="content-chat" class="tab-content hidden">
+                <div class="p-6 rounded-lg shadow-custom bg-white dark:bg-gray-800 transition-colors duration-300 flex flex-col h-[70vh]">
+                    <div id="react-root" class="flex-grow flex flex-col h-full">
+                        <!-- Die React-App wird hier gerendert -->
+                    </div>
                 </div>
             </div>
 
@@ -191,13 +255,58 @@
             </form>
         </div>
     </div>
+    
+    <!-- Dividenden-Modal (Neu hinzugefügt) -->
+    <div id="dividend-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full shadow-lg transition-colors duration-300">
+            <h3 class="text-xl font-semibold mb-4">Dividendenzahlung hinzufügen</h3>
+            <form id="dividend-form" class="space-y-4">
+                <div>
+                    <label for="dividend-symbol" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Symbol</label>
+                    <input type="text" id="dividend-symbol" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" required>
+                </div>
+                <div>
+                    <label for="dividend-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Datum</label>
+                    <input type="date" id="dividend-date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" required>
+                </div>
+                <div>
+                    <label for="dividend-amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Betrag (€)</label>
+                    <input type="number" id="dividend-amount" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" required>
+                </div>
+                <div class="flex justify-end space-x-4">
+                    <button type="button" id="btn-close-dividend-modal" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">Abbrechen</button>
+                    <button type="submit" class="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors duration-200">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Unternehmensdetails-Modal (NEU) -->
+    <div id="company-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full shadow-lg transition-colors duration-300">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="company-modal-title" class="text-xl font-bold">Unternehmensdetails</h3>
+                <button id="btn-close-company-modal" class="text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-200">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div id="company-modal-content" class="space-y-4">
+                <!-- Inhalt wird per JS geladen -->
+            </div>
+        </div>
+    </div>
 
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, query, onSnapshot, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
+        import { getFirestore, doc, setDoc, collection, query, onSnapshot, addDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import ReactDOM from "https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js";
+        import React from "https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js";
+        import "https://unpkg.com/@babel/standalone/babel.min.js";
+        
         // Globale Variablen aus der Canvas-Umgebung
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -208,6 +317,8 @@
         let auth;
         let userId = null;
         let isAuthReady = false;
+        let username = '';
+        let portfolioChart; // Variable für das Chart.js-Diagramm
 
         // UI-Elemente
         const body = document.body;
@@ -216,20 +327,46 @@
         const langToggle = document.getElementById('lang-toggle');
         const tabButtons = document.querySelectorAll('.tab-button');
         const tabContents = document.querySelectorAll('.tab-content');
-        const btnImport = document.getElementById('btn-import');
+        const fileInput = document.getElementById('file-input');
+        const fileNameSpan = document.getElementById('file-name');
+        const btnProcessFile = document.getElementById('btn-process-file');
         const btnAddTransaction = document.getElementById('btn-add-transaction');
+        const btnAddDividend = document.getElementById('btn-add-dividend');
         const transactionModal = document.getElementById('transaction-modal');
         const transactionForm = document.getElementById('transaction-form');
         const btnCloseTransactionModal = document.getElementById('btn-close-transaction-modal');
+        const dividendModal = document.getElementById('dividend-modal');
+        const dividendForm = document.getElementById('dividend-form');
+        const btnCloseDividendModal = document.getElementById('btn-close-dividend-modal');
         const messageModal = document.getElementById('message-modal');
         const messageTitle = document.getElementById('message-title');
         const messageText = document.getElementById('message-text');
         const messageCloseBtn = document.getElementById('message-close');
         const loadingIndicator = document.getElementById('loading-indicator');
+        const companyModal = document.getElementById('company-modal');
+        const companyModalTitle = document.getElementById('company-modal-title');
+        const companyModalContent = document.getElementById('company-modal-content');
+        const btnCloseCompanyModal = document.getElementById('btn-close-company-modal');
+
+        // Watchlist UI-Elemente
+        const watchlistForm = document.getElementById('watchlist-form');
+        const watchlistSymbolInput = document.getElementById('watchlist-symbol-input');
+        const watchlistList = document.getElementById('watchlist-list');
+        const watchlistPlaceholder = document.getElementById('watchlist-placeholder');
+        
+        // Analyse UI-Elemente
+        const analysisCommentForm = document.getElementById('analysis-comment-form');
+        const analysisCommentEmailInput = document.getElementById('analysis-comment-email');
+        const analysisCommentTextInput = document.getElementById('analysis-comment-text');
+        const analysisCommentsContainer = document.getElementById('analysis-comments-container');
+        const analysisCommentError = document.getElementById('analysis-comment-error');
 
         // Zustand
         const state = {
             transactions: [],
+            dividends: [],
+            watchlist: [],
+            analysisComments: [],
             isDarkMode: false,
             currentLanguage: 'de',
             isModalOpen: false,
@@ -252,18 +389,27 @@
             loadingIndicator.classList.remove('hidden');
         }
 
-        // Hilfsfunktion zum Verbergen des Ladeindikators
+        // Hilfsfunktion zum Verbergen von Meldungen
         function hideLoading() {
             loadingIndicator.classList.add('hidden');
         }
 
+        // Funktion zur Generierung eines einfachen, deterministischen Benutzernamens
+        const generateUsername = (uid) => {
+            const hash = Array.from(uid).reduce((acc, char) => char.charCodeAt(0) + acc, 0);
+            const adjectives = ['Freundlich', 'Glücklich', 'Schnell', 'Klug', 'Ruhig', 'Stark', 'Leuchtend'];
+            const nouns = ['Panda', 'Fuchs', 'Adler', 'Tiger', 'Wolf', 'Löwe', 'Bär'];
+            const adjective = adjectives[hash % adjectives.length];
+            const noun = nouns[(hash + 5) % nouns.length];
+            return `${adjective} ${noun}`;
+        };
+
         // Firebase-Initialisierung und Authentifizierung
         async function setupFirebase() {
-            console.log('Depot-Manager/:690 -> Firebase-Konfig geladen');
+            console.log('Firebase-Konfig geladen.');
             
-            // Überprüfe, ob firebaseConfig leer ist. Wenn ja, überspringe die Initialisierung.
             if (Object.keys(firebaseConfig).length === 0) {
-                console.error('Depot-Manager/:707 -> Fehler beim Initialisieren von Firebase: Konfiguration nicht gefunden.');
+                console.error('Fehler beim Initialisieren von Firebase: Konfiguration nicht gefunden.');
                 showMessage('Fehler', 'Firebase-Konfiguration nicht gefunden. Bitte prüfen Sie Ihre Umgebung.');
                 return;
             }
@@ -272,25 +418,29 @@
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-                console.log('Depot-Manager/:683 -> Firebase-Dienste initialisiert');
+                console.log('Firebase-Dienste initialisiert.');
                 
-                // Authentifizierungs-Listener einrichten
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
-                        console.log(`Depot-Manager/:700 -> Nutzer angemeldet: ${userId}`);
+                        username = generateUsername(user.uid);
+                        console.log(`Nutzer angemeldet: ${userId}, Anzeigename: ${username}`);
                     } else {
                         userId = null;
-                        console.log('Depot-Manager/:705 -> Nutzer abgemeldet.');
+                        username = '';
+                        console.log('Nutzer abgemeldet.');
                     }
                     isAuthReady = true;
-                    // Lade Transaktionen, sobald die Authentifizierung bereit ist
                     if (userId) {
                         loadTransactions();
+                        loadDividends();
+                        loadWatchlist();
+                        loadAnalysisComments();
                     }
+                    // Nach der Authentifizierung die React-App rendern
+                    renderReactApp();
                 });
 
-                // Anonyme Anmeldung mit Custom Token
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
@@ -298,39 +448,213 @@
                 }
 
             } catch (error) {
-                console.error('Depot-Manager/:707 -> Fehler beim Initialisieren von Firebase:', error);
+                console.error('Fehler beim Initialisieren von Firebase:', error);
                 showMessage('Fehler', `Fehler beim Initialisieren von Firebase: ${error.message}`);
+            }
+        }
+        
+        function renderReactApp() {
+            if (isAuthReady && userId) {
+                // Hier wird der React-Teil der App gerendert
+                const reactRoot = document.getElementById('react-root');
+                if (reactRoot && window.ReactDOM && window.React) {
+                     // Führe das React-Rendering aus, sobald die Firebase-Auth bereit ist
+                    const App = () => {
+                        const [commentText, setCommentText] = React.useState('');
+                        const [userEmail, setUserEmail] = React.useState('');
+                        const [comments, setComments] = React.useState([]);
+                        const [error, setError] = React.useState('');
+                        const commentsEndRef = React.useRef(null);
+                        
+                        React.useEffect(() => {
+                            if (!db || !userId) return;
+
+                            const commentsCollectionRef = collection(db, `artifacts/${appId}/public/data/comments`);
+                            const q = query(commentsCollectionRef);
+                            const unsubscribe = onSnapshot(q, (querySnapshot) => {
+                                const fetchedComments = [];
+                                querySnapshot.forEach((doc) => {
+                                    fetchedComments.push({ id: doc.id, ...doc.data() });
+                                });
+                                fetchedComments.sort((a, b) => a.timestamp?.toMillis() - b.timestamp?.toMillis());
+                                setComments(fetchedComments);
+                            }, (error) => {
+                                console.error('Fehler beim Abrufen von Kommentaren:', error);
+                                setError('Fehler beim Laden der Kommentare.');
+                            });
+                            return () => unsubscribe();
+                        }, [db, userId]);
+                        
+                        React.useEffect(() => {
+                            commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                        }, [comments]);
+                        
+                        const handleEmailChange = (e) => setUserEmail(e.target.value);
+                        const handleCommentChange = (e) => setCommentText(e.target.value);
+                        
+                        const validateEmail = (email) => {
+                            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                            return re.test(String(email).toLowerCase());
+                        };
+                        
+                        const handleSubmit = async (e) => {
+                            e.preventDefault();
+                            if (!validateEmail(userEmail)) {
+                                setError('Bitte geben Sie eine gültige E-Mail-Adresse ein.');
+                                return;
+                            }
+                            if (commentText.trim() === '') {
+                                setError('Der Kommentar kann nicht leer sein.');
+                                return;
+                            }
+                            if (!db || !userId) {
+                                setError('Datenbank oder Benutzer-ID nicht verfügbar.');
+                                return;
+                            }
+
+                            setError('');
+                            const commentsCollectionRef = collection(db, `artifacts/${appId}/public/data/comments`);
+
+                            try {
+                                await addDoc(commentsCollectionRef, {
+                                    userId,
+                                    userEmail: userEmail,
+                                    comment: commentText,
+                                    displayName: username,
+                                    timestamp: serverTimestamp(),
+                                });
+                                setCommentText('');
+                                setUserEmail('');
+                            } catch (e) {
+                                console.error('Fehler beim Hinzufügen des Kommentars:', e);
+                                setError('Fehler beim Senden des Kommentars. Bitte versuchen Sie es erneut.');
+                            }
+                        };
+                        
+                        return (
+                           <div className="flex flex-col h-full antialiased bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+                             <main className="flex-1 overflow-auto p-4">
+                               <div className="flex flex-col space-y-4">
+                                 {comments.length === 0 ? (
+                                   <p className="text-center text-gray-500 italic">Noch keine Kommentare. Seien Sie der Erste!</p>
+                                 ) : (
+                                   comments.map((msg, index) => (
+                                     <div
+                                       key={index}
+                                       className={`p-4 rounded-lg shadow-md ${
+                                         msg.userId === userId
+                                           ? 'bg-indigo-500 text-white self-end rounded-br-none'
+                                           : 'bg-white dark:bg-gray-800 self-start rounded-bl-none'
+                                       }`}
+                                     >
+                                       <div className="font-semibold mb-1 flex items-center">
+                                         <span className={`${msg.userId === userId ? '' : 'text-indigo-600 dark:text-indigo-400'}`}>
+                                           {msg.displayName}
+                                         </span>
+                                         <span className="text-xs ml-2 opacity-70">
+                                           {msg.timestamp?.toDate().toLocaleTimeString()}
+                                         </span>
+                                       </div>
+                                       <p className={`${msg.userId === userId ? '' : 'text-gray-700 dark:text-gray-300'}`}>{msg.comment}</p>
+                                     </div>
+                                   ))
+                                 )}
+                                 <div ref={commentsEndRef} />
+                               </div>
+                             </main>
+                             <form onSubmit={handleSubmit} className="p-4 bg-white dark:bg-gray-800 shadow-lg flex-shrink-0">
+                               <div className="flex items-center space-x-2 mb-2">
+                                 <input
+                                   type="email"
+                                   value={userEmail}
+                                   onChange={handleEmailChange}
+                                   placeholder="Ihre E-Mail-Adresse"
+                                   className="flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-200"
+                                   required
+                                 />
+                               </div>
+                               <div className="flex items-center space-x-2">
+                                 <textarea
+                                   value={commentText}
+                                   onChange={handleCommentChange}
+                                   placeholder="Schreiben Sie einen Kommentar..."
+                                   rows="2"
+                                   className="flex-1 p-3 rounded-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none dark:bg-gray-700 dark:text-gray-200"
+                                   required
+                                 ></textarea>
+                                 <button
+                                   type="submit"
+                                   className="p-3 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700 transition-colors duration-200"
+                                 >
+                                   Senden
+                                 </button>
+                               </div>
+                               {error && (
+                                 <div className="mt-2 text-sm text-red-600 dark:text-red-400 font-medium">
+                                   {error}
+                                 </div>
+                               )}
+                             </form>
+                           </div>
+                        );
+                    };
+                    ReactDOM.render(React.createElement(App), reactRoot);
+                } else {
+                    console.error('React- oder ReactDOM-Bibliothek nicht geladen.');
+                }
             }
         }
 
         // Transaktionen laden und in Echtzeit aktualisieren
         function loadTransactions() {
             if (!isAuthReady || !userId) {
-                console.warn('Depot-Manager/:900 -> Kann Transaktionen nicht laden: Authentifizierung nicht bereit oder Nutzer nicht angemeldet.');
+                console.warn('Kann Transaktionen nicht laden: Authentifizierung nicht bereit oder Nutzer nicht angemeldet.');
                 return;
             }
-
             const transactionsRef = collection(db, `artifacts/${appId}/users/${userId}/transactions`);
             
-            // onSnapshot-Listener für Echtzeit-Updates
             onSnapshot(transactionsRef, (snapshot) => {
                 const transactions = [];
                 snapshot.forEach(doc => {
                     transactions.push({ id: doc.id, ...doc.data() });
                 });
                 state.transactions = transactions;
-                console.log('Depot-Manager/:910 -> Transaktionen geladen:', state.transactions.length);
+                console.log('Transaktionen geladen:', state.transactions.length);
                 renderOverview();
+                renderAnalysis(); // Diagramm bei jeder Datenänderung neu rendern
             }, (error) => {
-                console.error('Depot-Manager/:920 -> Fehler beim Abrufen der Transaktionen:', error);
+                console.error('Fehler beim Abrufen der Transaktionen:', error);
                 showMessage('Datenbankfehler', 'Fehler beim Laden der Transaktionen. Überprüfen Sie Ihre Berechtigungen.');
+            });
+        }
+        
+        // Dividenden laden und in Echtzeit aktualisieren
+        function loadDividends() {
+            if (!isAuthReady || !userId) {
+                console.warn('Kann Dividenden nicht laden: Authentifizierung nicht bereit oder Nutzer nicht angemeldet.');
+                return;
+            }
+            const dividendsRef = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
+            
+            onSnapshot(dividendsRef, (snapshot) => {
+                const dividends = [];
+                snapshot.forEach(doc => {
+                    dividends.push({ id: doc.id, ...doc.data() });
+                });
+                state.dividends = dividends;
+                console.log('Dividenden geladen:', state.dividends.length);
+                renderDividends();
+                renderAnalysis(); // Diagramm bei jeder Datenänderung neu rendern
+            }, (error) => {
+                console.error('Fehler beim Abrufen der Dividenden:', error);
+                showMessage('Datenbankfehler', 'Fehler beim Laden der Dividenden. Überprüfen Sie Ihre Berechtigungen.');
             });
         }
         
         // Transaktion zur Datenbank hinzufügen
         async function addTransaction(transaction) {
             if (!isAuthReady || !userId) {
-                console.error('Depot-Manager/:1145 -> Fehler beim Hinzufügen der Transaktion: Nutzer nicht angemeldet.');
+                console.error('Fehler beim Hinzufügen der Transaktion: Nutzer nicht angemeldet.');
                 showMessage('Authentifizierungsfehler', 'Sie müssen angemeldet sein, um Transaktionen hinzuzufügen.');
                 return;
             }
@@ -338,10 +662,194 @@
             try {
                 const transactionsRef = collection(db, `artifacts/${appId}/users/${userId}/transactions`);
                 await addDoc(transactionsRef, transaction);
-                console.log('Depot-Manager/:1120 -> Transaktion erfolgreich hinzugefügt.');
+                console.log('Transaktion erfolgreich hinzugefügt.');
             } catch (error) {
-                console.error('Depot-Manager/:1145 -> Fehler beim Hinzufügen der Transaktion:', error);
+                console.error('Fehler beim Hinzufügen der Transaktion:', error);
                 showMessage('Datenbankfehler', `Fehler beim Hinzufügen der Transaktion: ${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        // Dividende zur Datenbank hinzufügen
+        async function addDividend(dividend) {
+            if (!isAuthReady || !userId) {
+                console.error('Fehler beim Hinzufügen der Dividende: Nutzer nicht angemeldet.');
+                showMessage('Authentifizierungsfehler', 'Sie müssen angemeldet sein, um Dividenden hinzuzufügen.');
+                return;
+            }
+            showLoading();
+            try {
+                const dividendsRef = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
+                await addDoc(dividendsRef, dividend);
+                console.log('Dividende erfolgreich hinzugefügt.');
+            } catch (error) {
+                console.error('Fehler beim Hinzufügen der Dividende:', error);
+                showMessage('Datenbankfehler', `Fehler beim Hinzufügen der Dividende: ${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        /**
+         * Parst CSV-Inhalt und ordnet Einträge automatisch Transaktionen oder Dividenden zu.
+         * Annahme: CSV-Struktur ist konsistent.
+         *
+         * Beispiel für Transaktion: "AAPL,buy,2024-01-15,185.50,10"
+         * Beispiel für Dividende:    "AAPL,dividend,2024-03-01,10.25"
+         */
+        function parseFileContentAndDistribute(csvText) {
+            console.log('Parsing CSV...');
+            const lines = csvText.split('\n').filter(line => line.trim() !== '');
+            const transactionsToAdd = [];
+            const dividendsToAdd = [];
+            
+            lines.forEach(line => {
+                const parts = line.split(',').map(part => part.trim());
+                if (parts.length === 5 && (parts[1].toLowerCase() === 'buy' || parts[1].toLowerCase() === 'sell')) {
+                    // Annahme: Es ist eine Transaktion
+                    const transaction = {
+                        symbol: parts[0].toUpperCase(),
+                        type: parts[1].toLowerCase(),
+                        date: parts[2],
+                        price: parseFloat(parts[3]),
+                        quantity: parseInt(parts[4], 10),
+                    };
+                    if (!isNaN(transaction.price) && !isNaN(transaction.quantity)) {
+                        transactionsToAdd.push(transaction);
+                    }
+                } else if (parts.length === 4 && parts[1].toLowerCase() === 'dividend') {
+                    // Annahme: Es ist eine Dividende
+                    const dividend = {
+                        symbol: parts[0].toUpperCase(),
+                        date: parts[2],
+                        amount: parseFloat(parts[3]),
+                    };
+                    if (!isNaN(dividend.amount)) {
+                        dividendsToAdd.push(dividend);
+                    }
+                }
+            });
+
+            if (transactionsToAdd.length > 0 || dividendsToAdd.length > 0) {
+                let successMessage = '';
+                let importPromises = [];
+                if (transactionsToAdd.length > 0) {
+                    importPromises.push(Promise.all(transactionsToAdd.map(t => addTransaction(t))));
+                    successMessage += `${transactionsToAdd.length} Transaktionen `;
+                }
+                if (dividendsToAdd.length > 0) {
+                    importPromises.push(Promise.all(dividendsToAdd.map(d => addDividend(d))));
+                    successMessage += `${dividendsToAdd.length} Dividenden `;
+                }
+
+                Promise.all(importPromises)
+                    .then(() => {
+                        showMessage('Import erfolgreich', `${successMessage}wurden importiert.`);
+                    })
+                    .catch(error => {
+                        showMessage('Importfehler', `Einige Einträge konnten nicht importiert werden: ${error.message}`);
+                    });
+            } else {
+                showMessage('Importfehler', 'Keine gültigen Einträge in der Datei gefunden. Bitte prüfen Sie das Format.');
+            }
+        }
+        
+        // Datenimport-Logik
+        async function handleFileProcessing(file) {
+            if (!file) {
+                showMessage('Fehler', 'Keine Datei zum Verarbeiten ausgewählt.');
+                return;
+            }
+
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            showLoading();
+
+            try {
+                if (fileExtension === 'csv') {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const csvText = e.target.result;
+                        parseFileContentAndDistribute(csvText);
+                        hideLoading();
+                    };
+                    reader.onerror = () => {
+                        showMessage('Lese-Fehler', 'Die Datei konnte nicht gelesen werden.');
+                        hideLoading();
+                    };
+                    reader.readAsText(file);
+                } else if (fileExtension === 'pdf') {
+                    // PDF-Parsing ist sehr komplex und erfordert spezialisierte Libraries.
+                    showMessage('Funktion in Entwicklung', 'Das automatische Auslesen von PDF-Dateien ist eine komplexe Funktion, die spezialisierte Bibliotheken erfordert. Diese Funktion befindet sich derzeit in Entwicklung.');
+                    hideLoading();
+                } else {
+                    showMessage('Ungültiges Dateiformat', 'Bitte wählen Sie eine .csv- oder .pdf-Datei aus.');
+                    hideLoading();
+                }
+            } catch (error) {
+                console.error('Fehler bei der Dateiverarbeitung:', error);
+                showMessage('Fehler', `Ein unerwarteter Fehler ist aufgetreten: ${error.message}`);
+                hideLoading();
+            } finally {
+                fileInput.value = ''; // Setzt den File-Input zurück
+                fileNameSpan.textContent = 'Keine Datei ausgewählt.';
+                btnProcessFile.classList.add('hidden');
+            }
+        }
+
+        // Watchlist laden und in Echtzeit aktualisieren
+        function loadWatchlist() {
+            if (!isAuthReady || !userId) {
+                console.warn('Kann Watchlist nicht laden: Authentifizierung nicht bereit oder Nutzer nicht angemeldet.');
+                return;
+            }
+            const watchlistRef = collection(db, `artifacts/${appId}/users/${userId}/watchlist`);
+            
+            onSnapshot(watchlistRef, (snapshot) => {
+                const watchlist = [];
+                snapshot.forEach(doc => {
+                    watchlist.push({ id: doc.id, symbol: doc.data().symbol });
+                });
+                state.watchlist = watchlist;
+                console.log('Watchlist geladen:', state.watchlist.length);
+                renderWatchlist();
+            }, (error) => {
+                console.error('Fehler beim Abrufen der Watchlist:', error);
+                showMessage('Datenbankfehler', 'Fehler beim Laden der Watchlist.');
+            });
+        }
+        
+        // Symbol zur Watchlist hinzufügen
+        async function addToWatchlist(symbol) {
+            if (!isAuthReady || !userId) {
+                showMessage('Authentifizierungsfehler', 'Sie müssen angemeldet sein, um die Watchlist zu verwenden.');
+                return;
+            }
+            showLoading();
+            try {
+                const watchlistRef = collection(db, `artifacts/${appId}/users/${userId}/watchlist`);
+                await addDoc(watchlistRef, { symbol });
+                showMessage('Erfolgreich', `${symbol} wurde zur Watchlist hinzugefügt.`);
+            } catch (error) {
+                showMessage('Datenbankfehler', `Fehler beim Hinzufügen von ${symbol}: ${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Symbol von der Watchlist entfernen
+        async function removeFromWatchlist(docId) {
+            if (!isAuthReady || !userId) {
+                showMessage('Authentifizierungsfehler', 'Sie müssen angemeldet sein, um die Watchlist zu bearbeiten.');
+                return;
+            }
+            showLoading();
+            try {
+                const docRef = doc(db, `artifacts/${appId}/users/${userId}/watchlist`, docId);
+                await deleteDoc(docRef);
+                showMessage('Erfolgreich', 'Symbol von der Watchlist entfernt.');
+            } catch (error) {
+                showMessage('Datenbankfehler', `Fehler beim Entfernen des Symbols: ${error.message}`);
             } finally {
                 hideLoading();
             }
@@ -349,14 +857,28 @@
 
         // UI-Funktionen
         function renderOverview() {
-            const overviewContent = document.getElementById('content-overview');
-            const placeholder = overviewContent.querySelector('p');
+            const overviewContainer = document.getElementById('overview-transactions-container');
+            const placeholder = document.getElementById('overview-placeholder');
+            const summaryContainer = document.getElementById('depot-summary');
 
+            // Berechne den Gesamtwert des Depots
+            let totalValue = state.transactions.reduce((acc, t) => {
+                const value = t.price * t.quantity;
+                return acc + (t.type === 'buy' ? value : -value);
+            }, 0);
+
+            // Rendere die Zusammenfassung
+            summaryContainer.innerHTML = `
+                <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg flex items-center justify-between shadow-sm">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Gesamtwert des Depots:</span>
+                    <span class="text-lg font-bold text-gray-900 dark:text-gray-100">${totalValue.toFixed(2)} €</span>
+                </div>
+            `;
+            
             if (state.transactions.length > 0) {
                 placeholder.classList.add('hidden');
-                // Beispiel-Rendering von Transaktionen
                 let tableHtml = `
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto mt-6">
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead class="bg-gray-50 dark:bg-gray-700">
                                 <tr>
@@ -372,7 +894,7 @@
                 state.transactions.forEach(t => {
                     tableHtml += `
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap">${t.symbol}</td>
+                            <td class="px-6 py-4 whitespace-nowrap"><button class="clickable-symbol" data-symbol="${t.symbol}">${t.symbol}</button></td>
                             <td class="px-6 py-4 whitespace-nowrap">${t.type}</td>
                             <td class="px-6 py-4 whitespace-nowrap">${t.date}</td>
                             <td class="px-6 py-4 whitespace-nowrap">${t.price}</td>
@@ -386,88 +908,539 @@
                     </div>
                 `;
                 
-                // Transaktionen am Anfang des Inhaltsbereichs einfügen
-                const existingTable = overviewContent.querySelector('table');
-                if (existingTable) {
-                    existingTable.closest('div').innerHTML = tableHtml;
-                } else {
-                    const newTableContainer = document.createElement('div');
-                    newTableContainer.innerHTML = tableHtml;
-                    overviewContent.querySelector('.p-6').prepend(newTableContainer.firstElementChild);
-                }
+                overviewContainer.innerHTML = tableHtml;
+                 // Event-Listener für die neuen klickbaren Symbole hinzufügen
+                document.querySelectorAll('.clickable-symbol').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const symbol = e.target.dataset.symbol;
+                        showCompanyDetailsModal(symbol);
+                    });
+                });
             } else {
                 placeholder.classList.remove('hidden');
-                const existingTable = overviewContent.querySelector('table');
-                if (existingTable) {
-                    existingTable.closest('div').remove();
-                }
+                overviewContainer.innerHTML = '';
             }
         }
 
-        // Simulierter Datenimport
-        function simulateDataImport() {
-            console.log('Depot-Manager/:1208 -> Datenimport-Button geklickt');
-            showMessage('Datenimport', 'Simulierter Datenimport abgeschlossen. Es wurden keine Daten geladen.');
-            console.log('Depot-Manager/:1250 Simulierter Datenimport abgeschlossen.');
+        function renderDividends() {
+            const dividendsContainer = document.getElementById('dividends-container');
+            const placeholder = document.getElementById('dividends-placeholder');
+
+            if (state.dividends.length > 0) {
+                placeholder.classList.add('hidden');
+                let tableHtml = `
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Symbol</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Datum</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Betrag (€)</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                `;
+                state.dividends.forEach(d => {
+                    tableHtml += `
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">${d.symbol}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${d.date}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${d.amount.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+                tableHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                dividendsContainer.innerHTML = tableHtml;
+            } else {
+                placeholder.classList.remove('hidden');
+                dividendsContainer.innerHTML = '';
+            }
+        }
+
+        function renderWatchlist() {
+            if (state.watchlist.length > 0) {
+                watchlistPlaceholder.classList.add('hidden');
+                watchlistList.innerHTML = state.watchlist.map(item => `
+                    <li class="p-4 bg-gray-50 dark:bg-gray-700 rounded-md flex justify-between items-center">
+                        <span class="font-medium">${item.symbol}</span>
+                        <button data-id="${item.id}" class="remove-watchlist-item text-red-500 hover:text-red-700 transition-colors duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </li>
+                `).join('');
+                document.querySelectorAll('.remove-watchlist-item').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const docId = e.currentTarget.dataset.id;
+                        removeFromWatchlist(docId);
+                    });
+                });
+            } else {
+                watchlistPlaceholder.classList.remove('hidden');
+                watchlistList.innerHTML = '';
+            }
         }
         
+        /**
+         * Simuliert das Abrufen von Unternehmensdaten aus einer externen Quelle.
+         * Diese Funktion gibt harte, statische Daten zurück.
+         * In einer echten Anwendung würde hier ein fetch() Aufruf an eine Finanz-API stehen.
+         * @param {string} symbol Das Tickersymbol des Unternehmens.
+         * @returns {object} Die simulierten Unternehmensdaten.
+         */
+        function fetchCompanyData(symbol) {
+            const data = {
+                'AAPL': {
+                    name: 'Apple Inc.',
+                    description: 'Apple Inc. entwirft, produziert und vermarktet Smartphones, PCs, Tablets, Wearables und Zubehör weltweit. Das Unternehmen bietet auch eine Vielzahl von Dienstleistungen an, darunter den App Store.',
+                    eps: 6.45,
+                    kgv: 28.5,
+                    kbv: 42.1,
+                    freeCashFlow: 97.4,
+                    liabilities: 275.5,
+                    dividend: 0.96,
+                    dividendYield: 0.54,
+                    revenue: 383.3,
+                },
+                'MSFT': {
+                    name: 'Microsoft Corporation',
+                    description: 'Microsoft Corporation entwickelt, lizenziert und unterstützt Software, Dienstleistungen, Geräte und Lösungen weltweit. Das Unternehmen ist bekannt für seine Windows-Betriebssysteme, Microsoft Office und die Cloud-Plattform Azure.',
+                    eps: 9.68,
+                    kgv: 34.2,
+                    kbv: 11.5,
+                    freeCashFlow: 69.8,
+                    liabilities: 219.8,
+                    dividend: 2.72,
+                    dividendYield: 0.73,
+                    revenue: 211.9,
+                },
+                'GOOGL': {
+                    name: 'Alphabet Inc.',
+                    description: 'Alphabet Inc. ist ein multinationaler Technologiekonzern, dessen Hauptgeschäft die Suchmaschine Google, das Betriebssystem Android, YouTube und die Cloud-Computing-Plattform Google Cloud umfasst. Sie investieren auch in Zukunftstechnologien wie KI und autonome Fahrzeuge.',
+                    eps: 5.42,
+                    kgv: 25.1,
+                    kbv: 6.1,
+                    freeCashFlow: 65.5,
+                    liabilities: 91.2,
+                    dividend: 0,
+                    dividendYield: 0,
+                    revenue: 307.4,
+                },
+                // Fügen Sie hier weitere simulierte Unternehmen hinzu
+            };
+            return data[symbol.toUpperCase()] || null;
+        }
+
+        // Unternehmensdetails-Modal anzeigen
+        function showCompanyDetailsModal(symbol) {
+            const companyData = fetchCompanyData(symbol);
+            if (!companyData) {
+                showMessage('Daten nicht gefunden', `Es konnten keine Daten für das Symbol "${symbol}" gefunden werden.`);
+                return;
+            }
+
+            companyModalTitle.textContent = `${companyData.name} (${symbol})`;
+            companyModalContent.innerHTML = `
+                <div class="space-y-4">
+                    <!-- Steckbrief -->
+                    <div>
+                        <h4 class="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-2 mb-2">Unternehmensprofil</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">${companyData.description}</p>
+                    </div>
+                    
+                    <!-- Finanzkennzahlen -->
+                    <div>
+                        <h4 class="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-2 mb-2">Finanzkennzahlen (Mrd. € oder %)</h4>
+                        <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                            <div>
+                                <dt class="font-medium text-gray-500 dark:text-gray-400">Umsatz</dt>
+                                <dd class="text-gray-900 dark:text-gray-100">${companyData.revenue.toLocaleString('de-DE')} Mrd. €</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500 dark:text-gray-400">Gewinn pro Aktie (EPS)</dt>
+                                <dd class="text-gray-900 dark:text-gray-100">${companyData.eps.toFixed(2)} €</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500 dark:text-gray-400">Kurs-Gewinn-Verhältnis (KGV)</dt>
+                                <dd class="text-gray-900 dark:text-gray-100">${companyData.kgv.toFixed(1)}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500 dark:text-gray-400">Kurs-Buchwert-Verhältnis (KBV)</dt>
+                                <dd class="text-gray-900 dark:text-gray-100">${companyData.kbv.toFixed(1)}</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500 dark:text-gray-400">Free Cash Flow</dt>
+                                <dd class="text-gray-900 dark:text-gray-100">${companyData.freeCashFlow.toLocaleString('de-DE')} Mrd. €</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500 dark:text-gray-400">Verbindlichkeiten</dt>
+                                <dd class="text-gray-900 dark:text-gray-100">${companyData.liabilities.toLocaleString('de-DE')} Mrd. €</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500 dark:text-gray-400">Dividende pro Aktie</dt>
+                                <dd class="text-gray-900 dark:text-gray-100">${companyData.dividend.toFixed(2)} €</dd>
+                            </div>
+                            <div>
+                                <dt class="font-medium text-gray-500 dark:text-gray-400">Dividendenrendite</dt>
+                                <dd class="text-gray-900 dark:text-gray-100">${companyData.dividendYield.toFixed(2)} %</dd>
+                            </div>
+                        </dl>
+                    </div>
+                </div>
+            `;
+            companyModal.classList.remove('hidden');
+        }
+
         // Modal öffnen/schließen
         function openTransactionModal() {
-            console.log('Depot-Manager/:1063 -> Transaktions-Modal öffnen');
+            console.log('Transaktions-Modal öffnen');
             transactionModal.classList.remove('hidden');
             state.isModalOpen = true;
         }
 
         function closeTransactionModal() {
-            console.log('Depot-Manager/:1067 -> Transaktions-Modal schließen');
+            console.log('Transaktions-Modal schließen');
             transactionModal.classList.add('hidden');
             state.isModalOpen = false;
         }
         
+        function openDividendModal() {
+            console.log('Dividenden-Modal öffnen');
+            dividendModal.classList.remove('hidden');
+            state.isModalOpen = true;
+        }
+
+        function closeDividendModal() {
+            console.log('Dividenden-Modal schließen');
+            dividendModal.classList.add('hidden');
+            state.isModalOpen = false;
+        }
+        
+        function closeCompanyModal() {
+            companyModal.classList.add('hidden');
+        }
+
+        // ---------- NEUE ANALYSE-FUNKTIONEN ----------
+        
+        /**
+         * Verarbeitet Transaktions- und Dividendendaten für das Zeitreihendiagramm.
+         * Berechnet den kumulativen Depotwert und die kumulierten Dividenden für jeden Tag.
+         * @returns {object} Ein Objekt mit Labels und Datensätzen für Chart.js
+         */
+        function processDataForChart() {
+            const allEvents = [...state.transactions, ...state.dividends]
+                .map(event => ({ ...event, timestamp: new Date(event.date) }))
+                .sort((a, b) => a.timestamp - b.timestamp);
+
+            const dates = Array.from(new Set(allEvents.map(event => event.date))).sort();
+            
+            const depotValues = {};
+            const dividendValues = {};
+            let cumulativeDepotValue = 0;
+            let cumulativeDividends = 0;
+
+            for (const date of dates) {
+                // Berücksichtige alle Ereignisse bis zu diesem Datum
+                const eventsOnThisDate = allEvents.filter(event => event.date === date);
+
+                eventsOnThisDate.forEach(event => {
+                    if (event.type === 'buy') {
+                        cumulativeDepotValue += event.price * event.quantity;
+                    } else if (event.type === 'sell') {
+                        cumulativeDepotValue -= event.price * event.quantity;
+                    } else if (event.amount) { // Annahme, dass Dividenden ein 'amount'-Feld haben
+                        cumulativeDividends += event.amount;
+                    }
+                });
+
+                depotValues[date] = cumulativeDepotValue;
+                dividendValues[date] = cumulativeDividends;
+            }
+
+            return {
+                labels: dates,
+                datasets: [
+                    {
+                        label: 'Depotwert (€)',
+                        data: Object.values(depotValues),
+                        borderColor: '#4f46e5', // indigo-600
+                        backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                        fill: true,
+                        tension: 0.3,
+                    },
+                    {
+                        label: 'Kumulierte Dividenden (€)',
+                        data: Object.values(dividendValues),
+                        borderColor: '#f59e0b', // yellow-500
+                        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                        fill: true,
+                        tension: 0.3,
+                    }
+                ]
+            };
+        }
+
+        /**
+         * Rendert das Diagramm mit Chart.js
+         */
+        function renderChart() {
+            const chartData = processDataForChart();
+            const ctx = document.getElementById('portfolio-chart').getContext('2d');
+
+            if (portfolioChart) {
+                portfolioChart.destroy();
+            }
+
+            portfolioChart = new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: state.isDarkMode ? '#e0e0e0' : '#1a1a1a',
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Entwicklung von Depot und Dividenden',
+                            color: state.isDarkMode ? '#e0e0e0' : '#1a1a1a',
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Datum',
+                                color: state.isDarkMode ? '#e0e0e0' : '#1a1a1a',
+                            },
+                            ticks: { color: state.isDarkMode ? '#a0a0a0' : '#6b7280' },
+                            grid: { color: state.isDarkMode ? '#4a4a4a' : '#e5e7eb' },
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Wert (€)',
+                                color: state.isDarkMode ? '#e0e0e0' : '#1a1a1a',
+                            },
+                            ticks: { color: state.isDarkMode ? '#a0a0a0' : '#6b7280' },
+                            grid: { color: state.isDarkMode ? '#4a4a4a' : '#e5e7eb' },
+                        }
+                    }
+                }
+            });
+        }
+        
+        /**
+         * Lädt Kommentare für den Analyse-Tab aus der Datenbank
+         */
+        function loadAnalysisComments() {
+            if (!isAuthReady || !userId) {
+                return;
+            }
+            const commentsRef = collection(db, `artifacts/${appId}/users/${userId}/analysis_comments`);
+            onSnapshot(commentsRef, (snapshot) => {
+                const comments = [];
+                snapshot.forEach(doc => {
+                    comments.push({ id: doc.id, ...doc.data() });
+                });
+                // Kommentare nach Zeitstempel sortieren
+                comments.sort((a, b) => a.timestamp?.toMillis() - b.timestamp?.toMillis());
+                state.analysisComments = comments;
+                renderAnalysisComments();
+            }, (error) => {
+                console.error('Fehler beim Laden der Analyse-Kommentare:', error);
+                showMessage('Datenbankfehler', 'Fehler beim Laden der Analyse-Kommentare.');
+            });
+        }
+
+        /**
+         * Rendert die Kommentare für den Analyse-Tab
+         */
+        function renderAnalysisComments() {
+            analysisCommentsContainer.innerHTML = state.analysisComments.map(comment => `
+                <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm">
+                    <div class="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        <span>${comment.displayName || 'Unbekannter Nutzer'}</span>
+                        <span>${comment.timestamp?.toDate().toLocaleString()}</span>
+                    </div>
+                    <p class="text-sm text-gray-800 dark:text-gray-200">${comment.text}</p>
+                </div>
+            `).join('');
+            analysisCommentsContainer.scrollTop = analysisCommentsContainer.scrollHeight;
+        }
+
+        // Fügt einen neuen Kommentar zur Analyse-Datenbank hinzu
+        async function addAnalysisComment(email, text) {
+            if (!isAuthReady || !userId) {
+                showMessage('Authentifizierungsfehler', 'Sie müssen angemeldet sein, um Kommentare hinzuzufügen.');
+                return;
+            }
+            if (!validateEmail(email)) {
+                showAnalysisCommentError('Bitte geben Sie eine gültige E-Mail-Adresse ein.');
+                return;
+            }
+            showLoading();
+            try {
+                const commentsRef = collection(db, `artifacts/${appId}/users/${userId}/analysis_comments`);
+                await addDoc(commentsRef, {
+                    email,
+                    text,
+                    displayName: username,
+                    timestamp: serverTimestamp(),
+                });
+                analysisCommentEmailInput.value = '';
+                analysisCommentTextInput.value = '';
+                showAnalysisCommentError('');
+            } catch (error) {
+                console.error('Fehler beim Hinzufügen des Analyse-Kommentars:', error);
+                showAnalysisCommentError('Fehler beim Speichern des Kommentars.');
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        function showAnalysisCommentError(message) {
+            if (message) {
+                analysisCommentError.textContent = message;
+                analysisCommentError.classList.remove('hidden');
+            } else {
+                analysisCommentError.classList.add('hidden');
+            }
+        }
+        
+        // Haupt-Render-Funktion für den Analyse-Tab
+        function renderAnalysis() {
+            renderChart();
+            renderAnalysisComments();
+        }
+
+        // Modal öffnen/schließen
+        function openTransactionModal() {
+            console.log('Transaktions-Modal öffnen');
+            transactionModal.classList.remove('hidden');
+            state.isModalOpen = true;
+        }
+
+        function closeTransactionModal() {
+            console.log('Transaktions-Modal schließen');
+            transactionModal.classList.add('hidden');
+            state.isModalOpen = false;
+        }
+        
+        function openDividendModal() {
+            console.log('Dividenden-Modal öffnen');
+            dividendModal.classList.remove('hidden');
+            state.isModalOpen = true;
+        }
+
+        function closeDividendModal() {
+            console.log('Dividenden-Modal schließen');
+            dividendModal.classList.add('hidden');
+            state.isModalOpen = false;
+        }
+        
+        function closeCompanyModal() {
+            companyModal.classList.add('hidden');
+        }
+        
+        // Einfache E-Mail-Validierung
+        const validateEmail = (email) => {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(String(email).toLowerCase());
+        };
+
         // Event-Listener
         document.addEventListener('DOMContentLoaded', async () => {
-            console.log('Depot-Manager/:992 -> UI-Initialisierung gestartet.');
+            console.log('UI-Initialisierung gestartet.');
 
             await setupFirebase();
-            console.log('Depot-Manager/:1017 -> UI-Elemente im DOM gefunden');
+            console.log('UI-Elemente im DOM gefunden');
             
             // Tab-Navigation
             tabButtons.forEach(button => {
                 button.addEventListener('click', (e) => {
                     const targetId = e.target.id.replace('tab-', 'content-');
-                    console.log(`Depot-Manager/:1022 -> Tab-Button geklickt: ${targetId.replace('content-', '')}`);
+                    console.log(`Tab-Button geklickt: ${targetId.replace('content-', '')}`);
                     tabButtons.forEach(btn => btn.classList.remove('active'));
                     tabContents.forEach(content => content.classList.add('hidden'));
                     e.target.classList.add('active');
                     document.getElementById(targetId).classList.remove('hidden');
+                    // Rendert den Analyse-Tab bei Klick
+                    if (targetId === 'content-analysis') {
+                        renderAnalysis();
+                    }
                 });
             });
 
             // Theme-Umschalter
             themeToggle.addEventListener('click', () => {
-                console.log('Depot-Manager/:1293 -> Theme-Toggle geklickt');
+                console.log('Theme-Toggle geklickt');
                 state.isDarkMode = !state.isDarkMode;
                 body.classList.toggle('dark', state.isDarkMode);
                 themeHandle.classList.toggle('translate-x-full', state.isDarkMode);
+                if (portfolioChart) {
+                    // Update Chart colors on theme change
+                    const textColor = state.isDarkMode ? '#e0e0e0' : '#1a1a1a';
+                    const gridColor = state.isDarkMode ? '#4a4a4a' : '#e5e7eb';
+                    const tickColor = state.isDarkMode ? '#a0a0a0' : '#6b7280';
+                    portfolioChart.options.plugins.legend.labels.color = textColor;
+                    portfolioChart.options.plugins.title.color = textColor;
+                    portfolioChart.options.scales.x.title.color = textColor;
+                    portfolioChart.options.scales.y.title.color = textColor;
+                    portfolioChart.options.scales.x.ticks.color = tickColor;
+                    portfolioChart.options.scales.y.ticks.color = tickColor;
+                    portfolioChart.options.scales.x.grid.color = gridColor;
+                    portfolioChart.options.scales.y.grid.color = gridColor;
+                    portfolioChart.update();
+                }
             });
 
             // Sprach-Umschalter (simuliert)
             langToggle.addEventListener('click', () => {
-                console.log('Depot-Manager/:1303 -> Sprach-Toggle geklickt');
+                console.log('Sprach-Toggle geklickt');
                 state.currentLanguage = state.currentLanguage === 'de' ? 'en' : 'de';
                 showMessage('Sprache geändert', `Sprache wurde auf "${state.currentLanguage.toUpperCase()}" umgestellt (simuliert).`);
             });
 
-            // Button-Events
-            btnImport.addEventListener('click', simulateDataImport);
-            btnAddTransaction.addEventListener('click', openTransactionModal);
-            btnCloseTransactionModal.addEventListener('click', closeTransactionModal);
-            messageCloseBtn.addEventListener('click', hideMessage);
+            // Dateiauswahl und Verarbeitung
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    fileNameSpan.textContent = file.name;
+                    btnProcessFile.classList.remove('hidden');
+                } else {
+                    fileNameSpan.textContent = 'Keine Datei ausgewählt.';
+                    btnProcessFile.classList.add('hidden');
+                }
+            });
 
-            // Formular-Submit
+            btnProcessFile.addEventListener('click', () => {
+                const file = fileInput.files[0];
+                handleFileProcessing(file);
+            });
+
+            // Button-Events
+            btnAddTransaction.addEventListener('click', openTransactionModal);
+            btnAddDividend.addEventListener('click', openDividendModal);
+            btnCloseTransactionModal.addEventListener('click', closeTransactionModal);
+            btnCloseDividendModal.addEventListener('click', closeDividendModal);
+            messageCloseBtn.addEventListener('click', hideMessage);
+            btnCloseCompanyModal.addEventListener('click', closeCompanyModal);
+
+            // Formular-Submit für Transaktionen
             transactionForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                console.log('Depot-Manager/:1110 -> Transaktions-Formular gesendet');
+                console.log('Transaktions-Formular gesendet');
                 const newTransaction = {
                     symbol: document.getElementById('symbol').value,
                     type: document.getElementById('type').value,
@@ -478,9 +1451,48 @@
                 await addTransaction(newTransaction);
                 closeTransactionModal();
                 transactionForm.reset();
+                showMessage('Erfolgreich', 'Transaktion erfolgreich hinzugefügt.');
             });
 
-            console.log('Depot-Manager/:1310 -> UI-Initialisierung abgeschlossen. Alle Event-Listener sollten jetzt aktiv sein.');
+            // Formular-Submit für Dividenden
+            dividendForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                console.log('Dividenden-Formular gesendet');
+                const newDividend = {
+                    symbol: document.getElementById('dividend-symbol').value,
+                    date: document.getElementById('dividend-date').value,
+                    amount: parseFloat(document.getElementById('dividend-amount').value),
+                };
+                await addDividend(newDividend);
+                closeDividendModal();
+                dividendForm.reset();
+                showMessage('Erfolgreich', 'Dividende erfolgreich hinzugefügt.');
+            });
+
+            // Watchlist-Formular-Submit
+            watchlistForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const symbol = watchlistSymbolInput.value.trim().toUpperCase();
+                if (symbol) {
+                    await addToWatchlist(symbol);
+                    watchlistSymbolInput.value = '';
+                }
+            });
+            
+            // Formular-Submit für Analyse-Kommentare
+            analysisCommentForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = analysisCommentEmailInput.value;
+                const text = analysisCommentTextInput.value;
+                if (email && text.trim()) {
+                    await addAnalysisComment(email, text);
+                } else {
+                    showAnalysisCommentError('E-Mail und Kommentar dürfen nicht leer sein.');
+                }
+            });
+
+
+            console.log('UI-Initialisierung abgeschlossen. Alle Event-Listener sollten jetzt aktiv sein.');
             
             // Lade Nachrichten (simuliert)
             setTimeout(() => {
@@ -491,13 +1503,15 @@
                     { title: "Technologieaktien im Aufwind", source: "Handelsblatt", date: "2025-08-10" },
                     { title: "Analyse: Wie geht es mit der Inflation weiter?", source: "Wall Street Journal", date: "2025-08-09" }
                 ];
-                newsStatus.textContent = 'Aktuelle Nachrichten:';
-                newsList.innerHTML = mockNews.map(news => `
-                    <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
-                        <h4 class="font-medium">${news.title}</h4>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">${news.source} - ${news.date}</p>
-                    </div>
-                `).join('');
+                if (newsStatus && newsList) {
+                    newsStatus.textContent = 'Aktuelle Nachrichten:';
+                    newsList.innerHTML = mockNews.map(news => `
+                        <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
+                            <h4 class="font-medium">${news.title}</h4>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">${news.source} - ${news.date}</p>
+                        </div>
+                    `).join('');
+                }
             }, 1000);
         });
     </script>
