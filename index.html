@@ -609,51 +609,59 @@
 
         // Funktion zum Initialisieren der App und Authentifizierung
         async function setupFirebase() {
+            console.log("-> setupFirebase gestartet");
             try {
                 // Konfigurationsdaten aus der Canvas-Umgebung
                 const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
                 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                 appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // appId global zuweisen
+                console.log("-> Firebase-Konfig geladen");
 
                 // Firebase initialisieren
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
+                console.log("-> Firebase-Dienste initialisiert");
 
                 // Benutzer authentifizieren
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
+                    console.log("-> Mit benutzerdefiniertem Token angemeldet");
                 } else {
                     await signInAnonymously(auth);
+                    console.log("-> Anonym angemeldet");
                 }
-
-                // Warten, bis der Authentifizierungsstatus feststeht
+                
+                // onAuthStateChanged wird beim Initialisieren des DOM-Inhalts und der Authentifizierung
+                // aufgerufen, und der Code wird erst ausgeführt, wenn das geschehen ist.
                 onAuthStateChanged(auth, (user) => {
+                    console.log("-> onAuthStateChanged-Callback aufgerufen");
                     if (user) {
                         userId = user.uid;
-                        console.log(`Benutzer authentifiziert mit ID: ${userId}. UI wird initialisiert.`);
-                        // Starten der Hauptlogik nach erfolgreicher Authentifizierung
+                        console.log(`-> Benutzer authentifiziert mit ID: ${userId}.`);
+                        // Starte die Hauptlogik erst nach erfolgreicher Authentifizierung
                         initializeUI();
-                        
                         // Setze die Echtzeit-Listener für alle Daten
                         setupRealtimeListeners();
                     } else {
-                        console.log('Authentifizierung fehlgeschlagen oder anonym. UI wurde nicht initialisiert.');
+                        console.error('-> Authentifizierung fehlgeschlagen oder anonym. UI nicht initialisiert.');
                     }
                 });
 
             } catch (error) {
-                console.error("Fehler beim Initialisieren von Firebase:", error);
+                console.error("-> Fehler beim Initialisieren von Firebase:", error);
             }
         }
         
         // Funktion zum Einrichten der Echtzeit-Listener
         function setupRealtimeListeners() {
+            console.log("-> Echtzeit-Listener werden eingerichtet");
             // Firestore Echtzeit-Listener für Portfolio
             const userPortfolioCollection = collection(db, `artifacts/${appId}/users/${userId}/portfolio`);
             onSnapshot(userPortfolioCollection, async (querySnapshot) => {
                 const positions = {};
                 let totalValue = 0;
+                console.log("-> Portfolio-Daten empfangen");
 
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
@@ -716,6 +724,7 @@
             const userWatchlistCollection = collection(db, `artifacts/${appId}/users/${userId}/watchlist`);
             onSnapshot(userWatchlistCollection, (querySnapshot) => {
                 watchlistItems.innerHTML = '';
+                console.log("-> Watchlist-Daten empfangen");
                 querySnapshot.forEach((doc) => {
                     const data = doc.data();
                     const card = document.createElement('div');
@@ -752,6 +761,7 @@
                 const dividends = [];
                 let totalDividendsAmount = 0;
                 dividendsTableBody.innerHTML = '';
+                console.log("-> Dividenden-Daten empfangen");
                 querySnapshot.forEach(doc => {
                     const data = doc.data();
                     dividends.push(data);
@@ -923,9 +933,9 @@
 
         // Hauptfunktion, die die Benutzeroberfläche initialisiert
         function initializeUI() {
-            console.log("UI-Initialisierung gestartet.");
+            console.log("-> UI-Initialisierung gestartet.");
             
-            // UI-Elemente
+            // UI-Elemente zuweisen
             const tabButtons = document.querySelectorAll('.tab-button');
             const tabContents = document.querySelectorAll('.tab-content');
             const addTransactionBtn = document.getElementById('add-transaction-button');
@@ -954,10 +964,13 @@
             const addDividendForm = document.getElementById('add-dividend-form');
             const newsFeed = document.getElementById('news-feed');
             const languageToggleBtn = document.getElementById('language-toggle');
+            
+            console.log("-> UI-Elemente im DOM gefunden");
 
             // Tabs-Logik
             tabButtons.forEach(button => {
                 button.addEventListener('click', () => {
+                    console.log(`-> Tab-Button geklickt: ${button.dataset.tab}`);
                     tabButtons.forEach(btn => btn.classList.remove('active'));
                     tabContents.forEach(content => content.classList.add('hidden'));
 
@@ -988,9 +1001,11 @@
 
             // Modalfenster-Logik für Transaktionen
             addTransactionBtn.addEventListener('click', () => {
+                console.log("-> Transaktions-Modal öffnen");
                 transactionModal.classList.add('active');
             });
             closeTransactionModalBtn.addEventListener('click', () => {
+                console.log("-> Transaktions-Modal schließen");
                 transactionModal.classList.remove('active');
             }
             );
@@ -1002,9 +1017,11 @@
 
             // Modalfenster-Logik für Dividenden
             addDividendBtn.addEventListener('click', () => {
+                console.log("-> Dividenden-Modal öffnen");
                 dividendModal.classList.add('active');
             });
             closeDividendModalBtn.addEventListener('click', () => {
+                console.log("-> Dividenden-Modal schließen");
                 dividendModal.classList.remove('active');
             });
             dividendModal.addEventListener('click', (e) => {
@@ -1015,9 +1032,11 @@
 
             // Modalfenster-Logik für Watchlist
             addWatchlistBtn.addEventListener('click', () => {
+                console.log("-> Watchlist-Modal öffnen");
                 watchlistModal.classList.add('active');
             });
             closeWatchlistModalBtn.addEventListener('click', () => {
+                console.log("-> Watchlist-Modal schließen");
                 watchlistModal.classList.remove('active');
             });
             watchlistModal.addEventListener('click', (e) => {
@@ -1029,6 +1048,7 @@
             // Formular-Logik für Transaktionen
             addTransactionForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                console.log("-> Transaktions-Formular gesendet");
                 const transactionType = document.getElementById('transaction-type').value;
                 const symbol = document.getElementById('symbol').value.toUpperCase();
                 let shares = parseFloat(document.getElementById('shares').value);
@@ -1059,17 +1079,18 @@
                     // Transaktion in Firestore speichern
                     const userPortfolioCollection = collection(db, `artifacts/${appId}/users/${userId}/portfolio`);
                     await addDoc(userPortfolioCollection, newTransaction);
-                    console.log('Neue Transaktion erfolgreich hinzugefügt:', newTransaction);
+                    console.log('-> Neue Transaktion erfolgreich hinzugefügt:', newTransaction);
                     transactionModal.classList.remove('active');
                     addTransactionForm.reset();
                 } catch (error) {
-                    console.error('Fehler beim Hinzufügen der Transaktion:', error);
+                    console.error('-> Fehler beim Hinzufügen der Transaktion:', error);
                 }
             });
 
             // Formular-Logik für Dividenden
             addDividendForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                console.log("-> Dividenden-Formular gesendet");
                 const symbol = document.getElementById('dividend-symbol').value.toUpperCase();
                 const amount = parseFloat(document.getElementById('dividend-amount').value);
                 const shares = parseFloat(document.getElementById('dividend-shares').value);
@@ -1087,17 +1108,18 @@
                 try {
                     const userDividendsCollection = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
                     await addDoc(userDividendsCollection, newDividend);
-                    console.log('Neue Dividende erfolgreich hinzugefügt:', newDividend);
+                    console.log('-> Neue Dividende erfolgreich hinzugefügt:', newDividend);
                     dividendModal.classList.remove('active');
                     addDividendForm.reset();
                 } catch (error) {
-                    console.error('Fehler beim Hinzufügen der Dividende:', error);
+                    console.error('-> Fehler beim Hinzufügen der Dividende:', error);
                 }
             });
             
             // Formular-Logik für Watchlist
             addWatchlistForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
+                console.log("-> Watchlist-Formular gesendet");
                 const symbol = document.getElementById('watchlist-symbol').value.toUpperCase();
                 const companyName = getMockCompanyName(symbol);
 
@@ -1111,16 +1133,17 @@
                 try {
                     const userWatchlistCollection = collection(db, `artifacts/${appId}/users/${userId}/watchlist`);
                     await addDoc(userWatchlistCollection, newWatchlistItem);
-                    console.log('Aktie zur Watchlist hinzugefügt:', newWatchlistItem);
+                    console.log('-> Aktie zur Watchlist hinzugefügt:', newWatchlistItem);
                     watchlistModal.classList.remove('active');
                     addWatchlistForm.reset();
                 } catch (error) {
-                    console.error('Fehler beim Hinzufügen zur Watchlist:', error);
+                    console.error('-> Fehler beim Hinzufügen zur Watchlist:', error);
                 }
             });
 
             // Simulierte Datenimport-Logik mit Dividenden
             importDataButton.addEventListener('click', () => {
+                console.log("-> Datenimport-Button geklickt");
                 const mockPortfolioData = [
                     { symbol: 'AAPL', transactionType: 'buy', shares: 50, price: 150.00, date: '2023-01-10' },
                     { symbol: 'MSFT', transactionType: 'buy', shares: 30, price: 280.50, date: '2023-01-15' },
@@ -1167,6 +1190,7 @@
 
             // Simuliert das Abrufen von Nachrichten
             function fetchNews() {
+                console.log("-> Nachrichten werden geladen");
                 const t = translations[currentLanguage];
                 const mockNews = [
                     {
@@ -1204,6 +1228,7 @@
 
             // Dark-Mode-Logik
             themeToggleBtn.addEventListener('click', () => {
+                console.log("-> Theme-Toggle geklickt");
                 document.body.classList.toggle('dark');
                 // Charts neu rendern, um die Farben anzupassen
                 renderPerformanceChart();
@@ -1213,17 +1238,19 @@
             
             // Sprachumschalt-Logik
             languageToggleBtn.addEventListener('click', () => {
+                console.log("-> Sprach-Toggle geklickt");
                 const newLang = languageToggleBtn.dataset.lang === 'de' ? 'en' : 'de';
                 updateLanguage(newLang);
             });
             
             // Initialisierung der Sprache
             updateLanguage(currentLanguage);
-            console.log("UI-Initialisierung abgeschlossen.");
+            console.log("-> UI-Initialisierung abgeschlossen. Alle Event-Listener sollten jetzt aktiv sein.");
         }
 
         // Starten der Firebase-Einrichtung beim Laden des DOM
         document.addEventListener('DOMContentLoaded', () => {
+            console.log("-> DOMContentLoaded-Ereignis ausgelöst. Starte Firebase-Setup.");
             setupFirebase();
         });
     </script>
