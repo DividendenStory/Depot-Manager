@@ -3,1330 +3,502 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Depot Manager</title>
-    <!-- Tailwind CSS über CDN für responsives Design und modernes Aussehen -->
+    <title>Depot-Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
             transition: background-color 0.3s, color 0.3s;
         }
-        /* CSS für Dunkelmodus */
         body.dark {
-            background-color: #1a202c;
-            color: #e2e8f0;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
         }
-        body.dark .bg-white {
-            background-color: #2d3748;
-        }
-        body.dark .text-gray-700 {
-            color: #e2e8f0;
-        }
-        body.dark .text-gray-500 {
-            color: #a0aec0;
-        }
-        body.dark .border-gray-200 {
-            border-color: #4a5568;
-        }
-        body.dark table th, body.dark table td {
-            border-bottom-color: #4a5568;
-        }
+        .bg-light-card { background-color: #ffffff; }
+        .bg-dark-card { background-color: #2a2a2a; }
+        .text-light-primary { color: #1a1a1a; }
+        .text-dark-primary { color: #e0e0e0; }
+        .text-light-secondary { color: #6b7280; }
+        .text-dark-secondary { color: #a0a0a0; }
+        .shadow-custom { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .tab-button { transition: all 0.2s ease-in-out; }
         .tab-button.active {
-            border-color: #4f46e5;
+            border-bottom: 2px solid #4f46e5;
+            font-weight: 600;
+        }
+        .tab-button:not(.active):hover {
             color: #4f46e5;
         }
-        body.dark .tab-button.active {
-            color: #818cf8;
-            border-color: #818cf8;
-        }
         .modal {
-            display: none; /* Standardmäßig ausgeblendet */
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
         }
-        .modal.active {
-            display: block; /* Bei aktiver Klasse anzeigen */
+        .modal.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+        .toggle-switch {
+            width: 3rem;
+            height: 1.5rem;
+            border-radius: 9999px;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .toggle-switch-handle {
+            width: 1.25rem;
+            height: 1.25rem;
+            border-radius: 9999px;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            transition: transform 0.2s;
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-700">
-    <div class="container mx-auto p-4 lg:p-8 max-w-7xl">
-        <!-- Haupt-Header mit anpassbarem Titel -->
-        <header class="mb-8">
-            <div class="flex items-center justify-between flex-wrap gap-4">
-                <h1 id="app-title" contenteditable="true" class="text-4xl lg:text-5xl font-bold cursor-pointer text-gray-900 dark:text-white">Depot Manager</h1>
-                <!-- UI für Personalisierung, Datenimport und Sprache/Theme -->
-                <div class="flex items-center space-x-4">
-                    <button id="import-data-button" class="px-4 py-2 bg-green-500 text-white font-medium text-xs leading-tight uppercase rounded-full shadow-md hover:bg-green-600 hover:shadow-lg focus:outline-none focus:ring-0 active:bg-green-700 transition duration-150 ease-in-out">
-                        Daten importieren
-                    </button>
-                    <!-- Neu hinzugefügte Sprachumschalt-Taste -->
-                    <button id="language-toggle" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-medium text-xs leading-tight uppercase rounded-full shadow-md hover:bg-gray-300 dark:hover:bg-gray-600 transition duration-150 ease-in-out" data-lang="de">
-                        EN
-                    </button>
-                    <button id="theme-toggle" class="p-2 rounded-full bg-white dark:bg-gray-800 shadow-md">
-                        <svg class="h-6 w-6 text-gray-800 dark:text-gray-200" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
-                        </svg>
-                    </button>
+<body class="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
+
+    <!-- Haupt-Container -->
+    <div id="app" class="min-h-screen flex flex-col p-4 md:p-8 transition-colors duration-300">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl md:text-3xl font-bold">Depot-Manager</h1>
+            <div class="flex items-center space-x-4">
+                <!-- Theme-Umschalter -->
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-500">Hell</span>
+                    <div id="theme-toggle" class="toggle-switch bg-gray-300 dark:bg-gray-700">
+                        <div id="theme-handle" class="toggle-switch-handle bg-white left-[0.125rem] dark:bg-gray-300 dark:transform dark:translate-x-full"></div>
+                    </div>
+                    <span class="text-sm text-gray-500">Dunkel</span>
                 </div>
+                <!-- Sprach-Umschalter -->
+                <button id="lang-toggle" class="p-2 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors duration-200">
+                    <svg class="h-5 w-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.066 11H9M21 11H9m-6 0h4m-2 4h6m-2 0a2 2 0 01-2-2m4 0a2 2 0 012-2m-2 2v2m-2 0v2m4-4v2m-2-2a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2h-2z" />
+                    </svg>
+                </button>
             </div>
         </header>
 
-        <!-- Navigations-Tabs -->
-        <nav class="mb-8">
-            <ul class="flex flex-wrap text-center border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
-                <li class="mr-2">
-                    <button data-tab="overview" class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300 font-medium tab-button active" id="tab-overview">Depot-Übersicht</button>
-                </li>
-                <li class="mr-2">
-                    <button data-tab="watchlist" class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300 font-medium tab-button" id="tab-watchlist">Watchlist</button>
-                </li>
-                <li class="mr-2">
-                    <button data-tab="dividends" class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300 font-medium tab-button" id="tab-dividends">Dividenden</button>
-                </li>
-                <li class="mr-2">
-                    <button data-tab="analysis" class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300 font-medium tab-button" id="tab-analysis">Analyse</button>
-                </li>
-                <li class="mr-2">
-                    <button data-tab="news" class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300 font-medium tab-button" id="tab-news">Nachrichten</button>
-                </li>
-            </ul>
-        </nav>
+        <!-- Tab-Navigation -->
+        <div class="flex border-b border-gray-300 dark:border-gray-700 mb-6 overflow-x-auto">
+            <button id="tab-overview" class="tab-button px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap active">Übersicht</button>
+            <button id="tab-watchlist" class="tab-button px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Watchlist</button>
+            <button id="tab-dividends" class="tab-button px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Dividenden</button>
+            <button id="tab-analysis" class="tab-button px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Analyse</button>
+            <button id="tab-news" class="tab-button px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap">Nachrichten</button>
+        </div>
 
-        <!-- Inhaltsbereich der Tabs -->
-        <main>
-            <!-- Depot-Übersicht Tab -->
-            <div id="overview-tab" class="tab-content active p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
-                <div class="flex flex-col lg:flex-row lg:items-center justify-between mb-6">
-                    <h2 id="overview-title" class="text-2xl font-semibold text-gray-800 dark:text-gray-200">Depot-Übersicht</h2>
-                    <div class="mt-4 lg:mt-0">
-                        <p id="total-value-label" class="text-lg text-gray-500 dark:text-gray-400">Gesamtwert des Depots:</p>
-                        <p id="total-value" class="text-3xl font-bold text-gray-900 dark:text-white">€0,00</p>
+        <!-- Inhaltsbereich -->
+        <main class="flex-grow">
+            <!-- Übersicht-Tab -->
+            <div id="content-overview" class="tab-content block">
+                <div class="p-6 rounded-lg shadow-custom bg-white dark:bg-gray-800 transition-colors duration-300">
+                    <h2 class="text-xl font-semibold mb-4">Mein Depot</h2>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Keine Transaktionen gefunden. Beginne mit dem Hinzufügen von Daten.</p>
+                    <div class="mt-6 flex flex-wrap gap-4">
+                        <button id="btn-import" class="px-4 py-2 bg-blue-500 text-white font-medium rounded-md hover:bg-blue-600 transition-colors duration-200">Daten importieren</button>
+                        <button id="btn-add-transaction" class="px-4 py-2 bg-green-500 text-white font-medium rounded-md hover:bg-green-600 transition-colors duration-200">Transaktion hinzufügen</button>
                     </div>
                 </div>
-
-                <!-- Tabelle für die Depot-Positionen -->
-                <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
-                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                            <tr>
-                                <th scope="col" class="py-3 px-6" id="th-logo">Logo</th>
-                                <th scope="col" class="py-3 px-6" id="th-company">Unternehmen</th>
-                                <th scope="col" class="py-3 px-6" id="th-symbol">WKN/Symbol</th>
-                                <th scope="col" class="py-3 px-6" id="th-shares">Stückzahl</th>
-                                <th scope="col" class="py-3 px-6" id="th-current-price">Akt. Kurs</th>
-                                <th scope="col" class="py-3 px-6" id="th-avg-price">Durschnitts-Einstandskurs</th>
-                                <th scope="col" class="py-3 px-6" id="th-profit-loss">Gewinn/Verlust</th>
-                                <th scope="col" class="py-3 px-6" id="th-performance">Rendite</th>
-                                <th scope="col" class="py-3 px-6" id="th-irr">IRR (sim.)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="portfolio-table-body">
-                            <!-- Hier werden die Daten aus Firestore eingefügt -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="mt-6 flex justify-end">
-                    <button id="add-transaction-button" class="px-6 py-3 bg-indigo-600 text-white font-medium text-xs leading-tight uppercase rounded-full shadow-md hover:bg-indigo-700 hover:shadow-lg focus:bg-indigo-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-indigo-800 active:shadow-lg transition duration-150 ease-in-out">
-                        Transaktion hinzufügen
-                    </button>
-                </div>
             </div>
-            
-            <!-- Watchlist Tab -->
-            <div id="watchlist-tab" class="tab-content hidden p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
-                <h2 id="watchlist-title" class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Watchlist</h2>
-                <div id="watchlist-items" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <!-- Watchlist-Elemente werden hier eingefügt -->
-                </div>
-                <div class="mt-6 flex justify-end">
-                    <button id="add-watchlist-button" class="px-6 py-3 bg-indigo-600 text-white font-medium text-xs leading-tight uppercase rounded-full shadow-md hover:bg-indigo-700 hover:shadow-lg focus:bg-indigo-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-indigo-800 active:shadow-lg transition duration-150 ease-in-out">
-                        Aktie zur Watchlist hinzufügen
-                    </button>
+
+            <!-- Watchlist-Tab -->
+            <div id="content-watchlist" class="tab-content hidden">
+                <div class="p-6 rounded-lg shadow-custom bg-white dark:bg-gray-800 transition-colors duration-300">
+                    <h2 class="text-xl font-semibold mb-4">Watchlist</h2>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Hier können Sie Aktien hinzufügen, die Sie beobachten möchten.</p>
                 </div>
             </div>
 
-            <!-- Dividenden Tab -->
-            <div id="dividends-tab" class="tab-content hidden p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
-                <div class="flex items-center justify-between mb-6">
-                    <h2 id="dividends-title" class="text-2xl font-semibold text-gray-800 dark:text-gray-200">Erhaltene Dividenden</h2>
-                    <button id="add-dividend-button" class="px-6 py-3 bg-indigo-600 text-white font-medium text-xs leading-tight uppercase rounded-full shadow-md hover:bg-indigo-700 hover:shadow-lg focus:bg-indigo-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-indigo-800 active:shadow-lg transition duration-150 ease-in-out">
-                        Dividende hinzufügen
-                    </button>
-                </div>
-                <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
-                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                            <tr>
-                                <th scope="col" class="py-3 px-6" id="th-dividend-company">Unternehmen</th>
-                                <th scope="col" class="py-3 px-6" id="th-dividend-symbol">WKN/Symbol</th>
-                                <th scope="col" class="py-3 px-6" id="th-dividend-amount">Betrag</th>
-                                <th scope="col" class="py-3 px-6" id="th-dividend-date">Datum</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dividends-table-body">
-                            <!-- Hier werden die Dividenden-Daten eingefügt -->
-                        </tbody>
-                    </table>
+            <!-- Dividenden-Tab -->
+            <div id="content-dividends" class="tab-content hidden">
+                <div class="p-6 rounded-lg shadow-custom bg-white dark:bg-gray-800 transition-colors duration-300">
+                    <h2 class="text-xl font-semibold mb-4">Dividenden</h2>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Hier sehen Sie eine Übersicht Ihrer Dividendenzahlungen.</p>
+                    <button id="btn-add-dividend" class="mt-6 px-4 py-2 bg-yellow-500 text-white font-medium rounded-md hover:bg-yellow-600 transition-colors duration-200">Dividendenzahlung hinzufügen</button>
                 </div>
             </div>
 
-            <!-- Analyse Tab -->
-            <div id="analysis-tab" class="tab-content hidden p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
-                <h2 id="analysis-title" class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Depot-Performance</h2>
-                <div class="relative h-96">
-                    <canvas id="performance-chart"></canvas>
-                </div>
-                
-                <h2 id="dividends-chart-title" class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mt-8 mb-4">Dividenden-Entwicklung</h2>
-                <div class="relative h-96">
-                    <canvas id="dividends-chart"></canvas>
-                </div>
-                <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm">
-                    <p id="total-dividends-label" class="text-lg font-medium text-gray-900 dark:text-white">Gesamt erhaltene Dividenden:</p>
-                    <p id="total-dividends" class="text-2xl font-bold text-green-600">€0,00</p>
+            <!-- Analyse-Tab -->
+            <div id="content-analysis" class="tab-content hidden">
+                <div class="p-6 rounded-lg shadow-custom bg-white dark:bg-gray-800 transition-colors duration-300">
+                    <h2 class="text-xl font-semibold mb-4">Analyse</h2>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Detaillierte Einblicke in Ihr Portfolio.</p>
                 </div>
             </div>
 
-            <!-- Nachrichten Tab -->
-            <div id="news-tab" class="tab-content hidden p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8">
-                <h2 id="news-title" class="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">Aktuelle Nachrichten</h2>
-                <div id="news-feed" class="space-y-4">
-                    <!-- Nachrichten-Artikel werden hier eingefügt -->
+            <!-- Nachrichten-Tab -->
+            <div id="content-news" class="tab-content hidden">
+                <div class="p-6 rounded-lg shadow-custom bg-white dark:bg-gray-800 transition-colors duration-300">
+                    <h2 class="text-xl font-semibold mb-4">Nachrichten</h2>
+                    <p id="news-status" class="text-sm text-gray-600 dark:text-gray-400">Nachrichten werden geladen...</p>
+                    <div id="news-list" class="mt-4 space-y-4"></div>
                 </div>
             </div>
+
+            <!-- Meldungs-Modal (für Fehler und Erfolge) -->
+            <div id="message-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
+                <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full shadow-lg">
+                    <h3 id="message-title" class="text-lg font-semibold mb-2"></h3>
+                    <p id="message-text" class="text-sm text-gray-600 dark:text-gray-400 mb-4"></p>
+                    <button id="message-close" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 w-full">OK</button>
+                </div>
+            </div>
+
+            <!-- Lade-Indikator -->
+            <div id="loading-indicator" class="hidden fixed inset-0 flex items-center justify-center bg-gray-600 bg-opacity-50 z-50">
+                <div class="animate-spin rounded-full h-12 w-12 border-4 border-t-4 border-blue-500 border-opacity-25 border-t-white"></div>
+            </div>
+
         </main>
+    </div>
 
-        <!-- Modalfenster zum Hinzufügen einer Transaktion -->
-        <div id="add-transaction-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 modal">
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
-                <div class="mt-3 text-center">
-                    <h3 id="modal-transaction-title" class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200">Neue Transaktion erfassen</h3>
-                    <div class="mt-2 px-7 py-3">
-                        <form id="add-transaction-form">
-                            <div class="mb-4">
-                                <label for="transaction-type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left" id="label-transaction-type">Transaktionsart</label>
-                                <select id="transaction-type" name="transaction-type" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
-                                    <option value="buy" id="option-buy">Kauf</option>
-                                    <option value="sell" id="option-sell">Verkauf</option>
-                                </select>
-                            </div>
-                            <div class="mb-4">
-                                <label for="symbol" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left" id="label-symbol">WKN/Symbol</label>
-                                <input type="text" id="symbol" name="symbol" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
-                            </div>
-                            <div class="mb-4">
-                                <label for="shares" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left" id="label-shares">Stückzahl</label>
-                                <input type="number" id="shares" name="shares" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
-                            </div>
-                            <div class="mb-4">
-                                <label for="price" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left" id="label-price">Kurs</label>
-                                <input type="number" step="0.01" id="price" name="price" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
-                            </div>
-                            <div class="mb-4">
-                                <label for="transaction-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left" id="label-transaction-date">Datum</label>
-                                <input type="date" id="transaction-date" name="transaction-date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
-                            </div>
-                            <div class="items-center px-4 py-3">
-                                <button type="submit" class="px-4 py-2 bg-indigo-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" id="btn-save-transaction">
-                                    Speichern
-                                </button>
-                                <button type="button" id="close-transaction-modal-button" class="mt-2 px-4 py-2 bg-gray-200 text-gray-700 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none" id="btn-cancel-transaction">
-                                    Abbrechen
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+    <!-- Transaktions-Modal -->
+    <div id="transaction-modal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full shadow-lg transition-colors duration-300">
+            <h3 class="text-xl font-semibold mb-4">Transaktion hinzufügen</h3>
+            <form id="transaction-form" class="space-y-4">
+                <div>
+                    <label for="symbol" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Symbol</label>
+                    <input type="text" id="symbol" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" required>
                 </div>
-            </div>
-        </div>
-
-        <!-- Modalfenster zum Hinzufügen einer Dividende -->
-        <div id="add-dividend-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 modal">
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
-                <div class="mt-3 text-center">
-                    <h3 id="modal-dividend-title" class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200">Neue Dividende erfassen</h3>
-                    <div class="mt-2 px-7 py-3">
-                        <form id="add-dividend-form">
-                            <div class="mb-4">
-                                <label for="dividend-symbol" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left" id="label-dividend-symbol">WKN/Symbol</label>
-                                <input type="text" id="dividend-symbol" name="dividend-symbol" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
-                            </div>
-                            <div class="mb-4">
-                                <label for="dividend-amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left" id="label-dividend-amount">Betrag pro Aktie (€)</label>
-                                <input type="number" step="0.01" id="dividend-amount" name="dividend-amount" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
-                            </div>
-                             <div class="mb-4">
-                                <label for="dividend-shares" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left" id="label-dividend-shares">Stückzahl</label>
-                                <input type="number" id="dividend-shares" name="dividend-shares" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
-                            </div>
-                            <div class="mb-4">
-                                <label for="dividend-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left" id="label-dividend-date">Datum</label>
-                                <input type="date" id="dividend-date" name="dividend-date" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
-                            </div>
-                            <div class="items-center px-4 py-3">
-                                <button type="submit" class="px-4 py-2 bg-indigo-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" id="btn-save-dividend">
-                                    Speichern
-                                </button>
-                                <button type="button" id="close-dividend-modal-button" class="mt-2 px-4 py-2 bg-gray-200 text-gray-700 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none" id="btn-cancel-dividend">
-                                    Abbrechen
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                <div>
+                    <label for="type" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Typ</label>
+                    <select id="type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" required>
+                        <option value="buy">Kauf</option>
+                        <option value="sell">Verkauf</option>
+                    </select>
                 </div>
-            </div>
-        </div>
-
-        <!-- Modalfenster zum Hinzufügen zur Watchlist -->
-        <div id="add-watchlist-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 modal">
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
-                <div class="mt-3 text-center">
-                    <h3 id="modal-watchlist-title" class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200">Aktie zur Watchlist hinzufügen</h3>
-                    <div class="mt-2 px-7 py-3">
-                        <form id="add-watchlist-form">
-                            <div class="mb-4">
-                                <label for="watchlist-symbol" class="block text-sm font-medium text-gray-700 dark:text-gray-300 text-left" id="label-watchlist-symbol">WKN/Symbol</label>
-                                <input type="text" id="watchlist-symbol" name="watchlist-symbol" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:text-white" required>
-                            </div>
-                            <div class="items-center px-4 py-3">
-                                <button type="submit" class="px-4 py-2 bg-indigo-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500" id="btn-add-watchlist">
-                                    Hinzufügen
-                                </button>
-                                <button type="button" id="close-watchlist-modal-button" class="mt-2 px-4 py-2 bg-gray-200 text-gray-700 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-300 focus:outline-none" id="btn-cancel-watchlist">
-                                    Abbrechen
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                <div>
+                    <label for="date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Datum</label>
+                    <input type="date" id="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" required>
                 </div>
-            </div>
+                <div>
+                    <label for="price" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Preis</label>
+                    <input type="number" id="price" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" required>
+                </div>
+                <div>
+                    <label for="quantity" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Anzahl</label>
+                    <input type="number" id="quantity" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200" required>
+                </div>
+                <div class="flex justify-end space-x-4">
+                    <button type="button" id="btn-close-transaction-modal" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200">Abbrechen</button>
+                    <button type="submit" class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200">Speichern</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <!-- Modalfenster zur Anzeige von Fehlermeldungen -->
-    <div id="error-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 modal">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
-            <div class="mt-3 text-center">
-                <h3 class="text-lg leading-6 font-medium text-red-600 dark:text-red-400">Fehler</h3>
-                <div class="mt-2 px-7 py-3">
-                    <p id="error-modal-message" class="text-sm text-gray-500 dark:text-gray-300"></p>
-                </div>
-                <div class="items-center px-4 py-3">
-                    <button type="button" id="close-error-modal-button" class="px-4 py-2 bg-red-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                        Schließen
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Chart.js-Bibliothek, global verfügbar -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- Haupt-Skript, das alle Firebase-Module importiert -->
+    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, collection, addDoc, deleteDoc, getDocs, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // =========================================================================
-        // WICHTIG: Firebase-Konfiguration hier einfügen!
-        // Für die Ausführung auf GitHub Pages müssen Sie Ihre eigene
-        // Firebase-Konfiguration hier in die Variable "myFirebaseConfig" einfügen.
-        // Sie finden diese in der Firebase-Konsole unter "Projekteinstellungen".
-        // =========================================================================
-        const myFirebaseConfig = {
-          apiKey: "AIzaSyBNDnCpZ8ahAcEl4OaRQaIorWv6gYxaHBs",
-          authDomain: "depot-manager-d2148.firebaseapp.com",
-          projectId: "depot-manager-d2148",
-          storageBucket: "depot-manager-d2148.firebasestorage.app",
-          messagingSenderId: "781534363246",
-          appId: "1:781534363246:web:5216f81b044e2fb040f07f"
-        };
-        // =========================================================================
-        // =========================================================================
+        import { getFirestore, doc, getDoc, setDoc, collection, query, onSnapshot, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Globale Variablen für Firebase-Dienste und Benutzer
+        // Globale Variablen aus der Canvas-Umgebung
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
         let app;
         let db;
         let auth;
-        let userId = 'anonymous';
-        let appId; // Deklariere appId global
+        let userId = null;
+        let isAuthReady = false;
 
-        // Globale Variablen für UI-Elemente
-        let portfolioTableBody;
-        let totalValueDisplay;
-        let watchlistItems;
-        let dividendsTableBody;
-        let totalDividendsDisplay;
-        let performanceChart;
-        let dividendsChart;
-        let currentLanguage = 'de'; // Standard-Sprache ist Deutsch
-        let errorModal;
-        let errorModalMessage;
+        // UI-Elemente
+        const body = document.body;
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeHandle = document.getElementById('theme-handle');
+        const langToggle = document.getElementById('lang-toggle');
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const btnImport = document.getElementById('btn-import');
+        const btnAddTransaction = document.getElementById('btn-add-transaction');
+        const transactionModal = document.getElementById('transaction-modal');
+        const transactionForm = document.getElementById('transaction-form');
+        const btnCloseTransactionModal = document.getElementById('btn-close-transaction-modal');
+        const messageModal = document.getElementById('message-modal');
+        const messageTitle = document.getElementById('message-title');
+        const messageText = document.getElementById('message-text');
+        const messageCloseBtn = document.getElementById('message-close');
+        const loadingIndicator = document.getElementById('loading-indicator');
 
-        // Übersetzungen für alle UI-Texte
-        const translations = {
-            'de': {
-                'app-title': 'Depot Manager',
-                'import-data-button': 'Daten importieren',
-                'tab-overview': 'Depot-Übersicht',
-                'tab-watchlist': 'Watchlist',
-                'tab-dividends': 'Dividenden',
-                'tab-analysis': 'Analyse',
-                'tab-news': 'Nachrichten',
-                'overview-title': 'Depot-Übersicht',
-                'total-value-label': 'Gesamtwert des Depots:',
-                'th-logo': 'Logo',
-                'th-company': 'Unternehmen',
-                'th-symbol': 'WKN/Symbol',
-                'th-shares': 'Stückzahl',
-                'th-current-price': 'Akt. Kurs',
-                'th-avg-price': 'Durschnitts-Einstandskurs',
-                'th-profit-loss': 'Gewinn/Verlust',
-                'th-performance': 'Rendite',
-                'th-irr': 'IRR (sim.)',
-                'add-transaction-button': 'Transaktion hinzufügen',
-                'watchlist-title': 'Watchlist',
-                'add-watchlist-button': 'Aktie zur Watchlist hinzufügen',
-                'dividends-title': 'Erhaltene Dividenden',
-                'add-dividend-button': 'Dividende hinzufügen',
-                'th-dividend-company': 'Unternehmen',
-                'th-dividend-symbol': 'WKN/Symbol',
-                'th-dividend-amount': 'Betrag',
-                'th-dividend-date': 'Datum',
-                'analysis-title': 'Depot-Performance',
-                'dividends-chart-title': 'Dividenden-Entwicklung',
-                'total-dividends-label': 'Gesamt erhaltene Dividenden:',
-                'news-title': 'Aktuelle Nachrichten',
-                'modal-transaction-title': 'Neue Transaktion erfassen',
-                'label-transaction-type': 'Transaktionsart',
-                'option-buy': 'Kauf',
-                'option-sell': 'Verkauf',
-                'label-symbol': 'WKN/Symbol',
-                'label-shares': 'Stückzahl',
-                'label-price': 'Kurs',
-                'label-transaction-date': 'Datum',
-                'btn-save-transaction': 'Speichern',
-                'btn-cancel-transaction': 'Abbrechen',
-                'modal-dividend-title': 'Neue Dividende erfassen',
-                'label-dividend-symbol': 'WKN/Symbol',
-                'label-dividend-amount': 'Betrag pro Aktie (€)',
-                'label-dividend-shares': 'Stückzahl',
-                'label-dividend-date': 'Datum',
-                'btn-save-dividend': 'Speichern',
-                'btn-cancel-dividend': 'Abbrechen',
-                'modal-watchlist-title': 'Aktie zur Watchlist hinzufügen',
-                'label-watchlist-symbol': 'WKN/Symbol',
-                'btn-add-watchlist': 'Hinzufügen',
-                'btn-cancel-watchlist': 'Abbrechen',
-                'chart-performance-label': 'Depot-Performance',
-                'chart-benchmark-label': 'Benchmark (DAX)',
-                'chart-dividend-label': 'Jährliche Dividenden (€)',
-                'chart-x-axis-year': 'Jahr',
-                'chart-y-axis-amount': 'Betrag (€)',
-                'news-article-1-title': 'Apple stellt neue KI-Funktionen für iOS vor',
-                'news-article-1-summary': 'Apple kündigt auf der WWDC die Integration von generativer KI in seine Betriebssysteme an, was zu einem deutlichen Kursanstieg führt.',
-                'news-article-1-source': 'TechCrunch',
-                'news-article-2-title': 'Microsoft übernimmt Gaming-Studio',
-                'news-article-2-summary': 'Microsoft erweitert sein Spieleportfolio durch die Übernahme eines unabhängigen Entwicklerstudios, was die Position im Gaming-Markt stärkt.',
-                'news-article-2-source': 'Bloomberg',
-                'news-article-3-title': 'Alphabet investiert in Quantencomputing',
-                'news-article-3-summary': 'Die Muttergesellschaft von Google, Alphabet, gibt eine neue Initiative zur Erforschung und Entwicklung von Quantencomputern bekannt.',
-                'news-article-3-source': 'Wall Street Journal',
-                'remove-watchlist-item': 'Watchlist-Eintrag entfernt.',
-                'import-data-done': 'Simulierter Datenimport abgeschlossen.',
-                'firebase-config-error': 'Fehler: Firebase-Konfiguration fehlt. Bitte fügen Sie Ihre Konfigurationsdaten in den Code ein.'
-            },
-            'en': {
-                'app-title': 'Portfolio Manager',
-                'import-data-button': 'Import Data',
-                'tab-overview': 'Portfolio Overview',
-                'tab-watchlist': 'Watchlist',
-                'tab-dividends': 'Dividends',
-                'tab-analysis': 'Analysis',
-                'tab-news': 'News',
-                'overview-title': 'Portfolio Overview',
-                'total-value-label': 'Total Portfolio Value:',
-                'th-logo': 'Logo',
-                'th-company': 'Company',
-                'th-symbol': 'WKN/Symbol',
-                'th-shares': 'Shares',
-                'th-current-price': 'Current Price',
-                'th-avg-price': 'Avg. Cost Basis',
-                'th-profit-loss': 'Profit/Loss',
-                'th-performance': 'Return',
-                'th-irr': 'IRR (sim.)',
-                'add-transaction-button': 'Add Transaction',
-                'watchlist-title': 'Watchlist',
-                'add-watchlist-button': 'Add Stock to Watchlist',
-                'dividends-title': 'Received Dividends',
-                'add-dividend-button': 'Add Dividend',
-                'th-dividend-company': 'Company',
-                'th-dividend-symbol': 'WKN/Symbol',
-                'th-dividend-amount': 'Amount',
-                'th-dividend-date': 'Date',
-                'analysis-title': 'Portfolio Performance',
-                'dividends-chart-title': 'Dividend Development',
-                'total-dividends-label': 'Total Dividends Received:',
-                'news-title': 'Latest News',
-                'modal-transaction-title': 'Record New Transaction',
-                'label-transaction-type': 'Transaction Type',
-                'option-buy': 'Buy',
-                'option-sell': 'Sell',
-                'label-symbol': 'WKN/Symbol',
-                'label-shares': 'Shares',
-                'label-price': 'Price',
-                'label-transaction-date': 'Date',
-                'btn-save-transaction': 'Save',
-                'btn-cancel-transaction': 'Cancel',
-                'modal-dividend-title': 'Record New Dividend',
-                'label-dividend-symbol': 'WKN/Symbol',
-                'label-dividend-amount': 'Amount per Share (€)',
-                'label-dividend-shares': 'Shares',
-                'label-dividend-date': 'Date',
-                'btn-save-dividend': 'Save',
-                'btn-cancel-dividend': 'Cancel',
-                'modal-watchlist-title': 'Add Stock to Watchlist',
-                'label-watchlist-symbol': 'WKN/Symbol',
-                'btn-add-watchlist': 'Add',
-                'btn-cancel-watchlist': 'Cancel',
-                'chart-performance-label': 'Portfolio Performance',
-                'chart-benchmark-label': 'Benchmark (DAX)',
-                'chart-dividend-label': 'Annual Dividends (€)',
-                'chart-x-axis-year': 'Year',
-                'chart-y-axis-amount': 'Amount (€)',
-                'news-article-1-title': 'Apple Unveils New AI Features for iOS',
-                'news-article-1-summary': 'Apple announces the integration of generative AI into its operating systems at WWDC, leading to a significant increase in its stock price.',
-                'news-article-1-source': 'TechCrunch',
-                'news-article-2-title': 'Microsoft Acquires Gaming Studio',
-                'news-article-2-summary': 'Microsoft expands its gaming portfolio by acquiring an independent developer studio, strengthening its position in the gaming market.',
-                'news-article-2-source': 'Bloomberg',
-                'news-article-3-title': 'Alphabet Invests in Quantum Computing',
-                'news-article-3-summary': 'Google\'s parent company, Alphabet, announces a new initiative to research and develop quantum computers.',
-                'news-article-3-source': 'Wall Street Journal',
-                'remove-watchlist-item': 'Watchlist item removed.',
-                'import-data-done': 'Simulated data import completed.',
-                'firebase-config-error': 'Error: Firebase configuration is missing. Please insert your configuration data into the code.'
-            }
+        // Zustand
+        const state = {
+            transactions: [],
+            isDarkMode: false,
+            currentLanguage: 'de',
+            isModalOpen: false,
         };
 
-        // Funktion zum Aktualisieren der Sprache
-        function updateLanguage(lang) {
-            currentLanguage = lang;
-            const t = translations[lang];
-            
-            // Helper function to safely update an element's textContent
-            function safeUpdate(id, text) {
-                const element = document.getElementById(id);
-                if (element) {
-                    element.textContent = text;
-                }
-            }
-            
-            // Haupt-UI-Texte
-            safeUpdate('app-title', t['app-title']);
-            safeUpdate('import-data-button', t['import-data-button']);
-            
-            // Separate logic for the language toggle button
-            const languageToggleBtn = document.getElementById('language-toggle');
-            if (languageToggleBtn) {
-                languageToggleBtn.textContent = lang === 'de' ? 'EN' : 'DE';
-                languageToggleBtn.dataset.lang = lang;
-            }
-
-            safeUpdate('tab-overview', t['tab-overview']);
-            safeUpdate('tab-watchlist', t['tab-watchlist']);
-            safeUpdate('tab-dividends', t['tab-dividends']);
-            safeUpdate('tab-analysis', t['tab-analysis']);
-            safeUpdate('tab-news', t['tab-news']);
-
-            // Depot-Übersicht
-            safeUpdate('overview-title', t['overview-title']);
-            safeUpdate('total-value-label', t['total-value-label']);
-            safeUpdate('add-transaction-button', t['add-transaction-button']);
-            safeUpdate('th-logo', t['th-logo']);
-            safeUpdate('th-company', t['th-company']);
-            safeUpdate('th-symbol', t['th-symbol']);
-            safeUpdate('th-shares', t['th-shares']);
-            safeUpdate('th-current-price', t['th-current-price']);
-            safeUpdate('th-avg-price', t['th-avg-price']);
-            safeUpdate('th-profit-loss', t['th-profit-loss']);
-            safeUpdate('th-performance', t['th-performance']);
-            safeUpdate('th-irr', t['th-irr']);
-
-            // Watchlist
-            safeUpdate('watchlist-title', t['watchlist-title']);
-            safeUpdate('add-watchlist-button', t['add-watchlist-button']);
-
-            // Dividenden
-            safeUpdate('dividends-title', t['dividends-title']);
-            safeUpdate('add-dividend-button', t['add-dividend-button']);
-            safeUpdate('th-dividend-company', t['th-dividend-company']);
-            safeUpdate('th-dividend-symbol', t['th-dividend-symbol']);
-            safeUpdate('th-dividend-amount', t['th-dividend-amount']);
-            safeUpdate('th-dividend-date', t['th-dividend-date']);
-
-            // Analyse
-            safeUpdate('analysis-title', t['analysis-title']);
-            safeUpdate('dividends-chart-title', t['dividends-chart-title']);
-            safeUpdate('total-dividends-label', t['total-dividends-label']);
-            
-            // Nachrichten
-            safeUpdate('news-title', t['news-title']);
-
-            // Modals
-            safeUpdate('modal-transaction-title', t['modal-transaction-title']);
-            safeUpdate('label-transaction-type', t['label-transaction-type']);
-            safeUpdate('option-buy', t['option-buy']);
-            safeUpdate('option-sell', t['option-sell']);
-            safeUpdate('label-symbol', t['label-symbol']);
-            safeUpdate('label-shares', t['label-shares']);
-            safeUpdate('label-price', t['label-price']);
-            safeUpdate('label-transaction-date', t['label-transaction-date']);
-            safeUpdate('btn-save-transaction', t['btn-save-transaction']);
-            safeUpdate('btn-cancel-transaction', t['btn-cancel-transaction']);
-            
-            safeUpdate('modal-dividend-title', t['modal-dividend-title']);
-            safeUpdate('label-dividend-symbol', t['label-dividend-symbol']);
-            safeUpdate('label-dividend-amount', t['label-dividend-amount']);
-            safeUpdate('label-dividend-shares', t['label-dividend-shares']);
-            safeUpdate('label-dividend-date', t['label-dividend-date']);
-            safeUpdate('btn-save-dividend', t['btn-save-dividend']);
-            safeUpdate('btn-cancel-dividend', t['btn-cancel-dividend']);
-            
-            safeUpdate('modal-watchlist-title', t['modal-watchlist-title']);
-            safeUpdate('label-watchlist-symbol', t['label-watchlist-symbol']);
-            safeUpdate('btn-add-watchlist', t['btn-add-watchlist']);
-            safeUpdate('btn-cancel-watchlist', t['btn-cancel-watchlist']);
-
-            // Re-render dynamic content if the respective tab is active
-            const analysisTab = document.getElementById('analysis-tab');
-            if (analysisTab && !analysisTab.classList.contains('hidden')) {
-                if (performanceChart) renderPerformanceChart();
-                if (dividendsChart && db && userId) {
-                    const userDividendsCollection = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
-                    getDocs(userDividendsCollection).then(querySnapshot => {
-                        const dividends = [];
-                        querySnapshot.forEach(doc => dividends.push(doc.data()));
-                        renderDividendChart(dividends);
-                    });
-                }
-            }
-            
-            const newsTab = document.getElementById('news-tab');
-            if (newsTab && !newsTab.classList.contains('hidden')) {
-                fetchNews();
-            }
+        // Hilfsfunktion zum Anzeigen von Meldungen
+        function showMessage(title, message) {
+            messageTitle.textContent = title;
+            messageText.textContent = message;
+            messageModal.classList.remove('hidden');
         }
 
-        // Hilfsfunktionen (jetzt global verfügbar)
-        function formatCurrency(value) {
-            return new Intl.NumberFormat(currentLanguage === 'de' ? 'de-DE' : 'en-US', { style: 'currency', currency: 'EUR' }).format(value);
-        }
-        
-        function showErrorMessage(message) {
-            // Sicherstellen, dass das Modal und die Nachricht existieren
-            if (errorModal && errorModalMessage) {
-                errorModalMessage.textContent = message;
-                errorModal.classList.add('active');
-            } else {
-                console.error("Kann Fehlermeldung nicht anzeigen, da das Modal nicht gefunden wurde.");
-            }
+        // Hilfsfunktion zum Verbergen von Meldungen
+        function hideMessage() {
+            messageModal.classList.add('hidden');
         }
 
-        function getMockLogoUrl(symbol) {
-            const placeholder = {
-                'AAPL': 'https://placehold.co/100x100/101010/ffffff?text=AAPL',
-                'MSFT': 'https://placehold.co/100x100/2f2f2f/ffffff?text=MSFT',
-                'GOOGL': 'https://placehold.co/100x100/3c3c3c/ffffff?text=GOOGL',
-                'AMZN': 'https://placehold.co/100x100/4e4e4e/ffffff?text=AMZN'
-            };
-            return placeholder[symbol] || `https://placehold.co/100x100/5e5e5e/ffffff?text=${symbol}`;
-        }
-        
-        function getMockCompanyName(symbol) {
-            const names = {
-                'AAPL': 'Apple Inc.',
-                'MSFT': 'Microsoft Corp.',
-                'GOOGL': 'Alphabet Inc.',
-                'AMZN': 'Amazon.com Inc.'
-            };
-            return names[symbol] || symbol;
+        // Hilfsfunktion zum Anzeigen des Ladeindikators
+        function showLoading() {
+            loadingIndicator.classList.remove('hidden');
         }
 
-        // Funktion zum Initialisieren der App und Authentifizierung
+        // Hilfsfunktion zum Verbergen des Ladeindikators
+        function hideLoading() {
+            loadingIndicator.classList.add('hidden');
+        }
+
+        // Firebase-Initialisierung und Authentifizierung
         async function setupFirebase() {
-            console.log("-> setupFirebase gestartet");
-            try {
-                // Konfigurationsdaten: Zuerst versuchen, die Canvas-Umgebungsvariable zu verwenden,
-                // andernfalls die manuell eingefügte Konfiguration.
-                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : myFirebaseConfig;
-                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // appId global zuweisen
-                
-                // Prüfen, ob die Konfiguration gültig ist
-                if (!firebaseConfig.projectId || firebaseConfig.projectId.includes('Ihr_Projekt-ID_hier')) {
-                    console.error('-> Firebase-Konfiguration fehlt oder ist ungültig.');
-                    showErrorMessage(translations[currentLanguage]['firebase-config-error']);
-                    return; // Beende die Ausführung, wenn die Konfiguration fehlt
-                }
-                
-                console.log("-> Firebase-Konfig geladen");
+            console.log('Depot-Manager/:690 -> Firebase-Konfig geladen');
+            
+            // Überprüfe, ob firebaseConfig leer ist. Wenn ja, überspringe die Initialisierung.
+            if (Object.keys(firebaseConfig).length === 0) {
+                console.error('Depot-Manager/:707 -> Fehler beim Initialisieren von Firebase: Konfiguration nicht gefunden.');
+                showMessage('Fehler', 'Firebase-Konfiguration nicht gefunden. Bitte prüfen Sie Ihre Umgebung.');
+                return;
+            }
 
-                // Firebase initialisieren
+            try {
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-                console.log("-> Firebase-Dienste initialisiert");
-
-                // Benutzer authentifizieren
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                    console.log("-> Mit benutzerdefiniertem Token angemeldet");
-                } else {
-                    await signInAnonymously(auth);
-                    console.log("-> Anonym angemeldet");
-                }
+                console.log('Depot-Manager/:683 -> Firebase-Dienste initialisiert');
                 
+                // Authentifizierungs-Listener einrichten
                 onAuthStateChanged(auth, (user) => {
-                    console.log("-> onAuthStateChanged-Callback aufgerufen");
                     if (user) {
                         userId = user.uid;
-                        console.log(`-> Benutzer authentifiziert mit ID: ${userId}.`);
-                        // Setze die Echtzeit-Listener für alle Daten
-                        setupRealtimeListeners();
+                        console.log(`Depot-Manager/:700 -> Nutzer angemeldet: ${userId}`);
                     } else {
-                        console.error('-> Authentifizierung fehlgeschlagen oder anonym. Echtzeit-Listener nicht gestartet.');
+                        userId = null;
+                        console.log('Depot-Manager/:705 -> Nutzer abgemeldet.');
+                    }
+                    isAuthReady = true;
+                    // Lade Transaktionen, sobald die Authentifizierung bereit ist
+                    if (userId) {
+                        loadTransactions();
                     }
                 });
+
+                // Anonyme Anmeldung mit Custom Token
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
 
             } catch (error) {
-                console.error("-> Fehler beim Initialisieren von Firebase:", error);
-                showErrorMessage(`Ein unerwarteter Fehler ist aufgetreten: ${error.message}`);
+                console.error('Depot-Manager/:707 -> Fehler beim Initialisieren von Firebase:', error);
+                showMessage('Fehler', `Fehler beim Initialisieren von Firebase: ${error.message}`);
             }
+        }
+
+        // Transaktionen laden und in Echtzeit aktualisieren
+        function loadTransactions() {
+            if (!isAuthReady || !userId) {
+                console.warn('Depot-Manager/:900 -> Kann Transaktionen nicht laden: Authentifizierung nicht bereit oder Nutzer nicht angemeldet.');
+                return;
+            }
+
+            const transactionsRef = collection(db, `artifacts/${appId}/users/${userId}/transactions`);
+            
+            // onSnapshot-Listener für Echtzeit-Updates
+            onSnapshot(transactionsRef, (snapshot) => {
+                const transactions = [];
+                snapshot.forEach(doc => {
+                    transactions.push({ id: doc.id, ...doc.data() });
+                });
+                state.transactions = transactions;
+                console.log('Depot-Manager/:910 -> Transaktionen geladen:', state.transactions.length);
+                renderOverview();
+            }, (error) => {
+                console.error('Depot-Manager/:920 -> Fehler beim Abrufen der Transaktionen:', error);
+                showMessage('Datenbankfehler', 'Fehler beim Laden der Transaktionen. Überprüfen Sie Ihre Berechtigungen.');
+            });
         }
         
-        // Funktion zum Einrichten der Echtzeit-Listener
-        function setupRealtimeListeners() {
-            console.log("-> Echtzeit-Listener werden eingerichtet");
-            // Firestore Echtzeit-Listener für Portfolio
-            const userPortfolioCollection = collection(db, `artifacts/${appId}/users/${userId}/portfolio`);
-            onSnapshot(userPortfolioCollection, async (querySnapshot) => {
-                const positions = {};
-                let totalValue = 0;
-                console.log("-> Portfolio-Daten empfangen");
-
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const { symbol, shares, price, currentPrice } = data;
-
-                    if (!positions[symbol]) {
-                        positions[symbol] = {
-                            symbol,
-                            companyName: getMockCompanyName(symbol),
-                            logoUrl: getMockLogoUrl(symbol),
-                            totalShares: 0,
-                            totalCost: 0,
-                            currentPrice,
-                        };
-                    }
-
-                    positions[symbol].totalShares += shares;
-                    positions[symbol].totalCost += shares * price;
-                });
-                
-                const aggregatedPositions = Object.values(positions).filter(p => p.totalShares > 0).map(position => {
-                    position.averageBuyPrice = position.totalCost / position.totalShares;
-                    position.totalCurrentValue = position.totalShares * position.currentPrice;
-                    totalValue += position.totalCurrentValue;
-                    return position;
-                });
-                
-                portfolioTableBody.innerHTML = '';
-                aggregatedPositions.forEach((position) => {
-                    const { symbol, companyName, logoUrl, totalShares, averageBuyPrice, currentPrice, totalCurrentValue } = position;
-                    const profitLoss = (currentPrice - averageBuyPrice) * totalShares;
-                    const performance = (currentPrice / averageBuyPrice - 1) * 100;
-                    
-                    const simulatedIRR = (performance / 12).toFixed(2);
-
-                    const row = document.createElement('tr');
-                    row.classList.add('bg-white', 'dark:bg-gray-800', 'border-b', 'dark:border-gray-700', 'hover:bg-gray-50', 'dark:hover:bg-gray-600', 'cursor-pointer');
-                    row.innerHTML = `
-                        <td class="py-4 px-6"><img src="${logoUrl}" alt="${symbol} Logo" class="h-8 w-8 rounded-full"></td>
-                        <td class="py-4 px-6">${companyName}</td>
-                        <th scope="row" class="py-4 px-6 font-medium text-gray-900 dark:text-white whitespace-nowrap">${symbol}</th>
-                        <td class="py-4 px-6">${totalShares}</td>
-                        <td class="py-4 px-6">${formatCurrency(currentPrice)}</td>
-                        <td class="py-4 px-6">${formatCurrency(averageBuyPrice)}</td>
-                        <td class="py-4 px-6 ${profitLoss >= 0 ? 'text-green-500' : 'text-red-500'}">${formatCurrency(profitLoss)}</td>
-                        <td class="py-4 px-6 ${performance >= 0 ? 'text-green-500' : 'text-red-500'}">${performance.toFixed(2)}%</td>
-                        <td class="py-4 px-6 ${simulatedIRR >= 0 ? 'text-green-500' : 'text-red-500'}">${simulatedIRR}%</td>
-                    `;
-                    portfolioTableBody.appendChild(row);
-                });
-                totalValueDisplay.textContent = formatCurrency(totalValue);
-                // rendern Sie das Diagramm nur, wenn es sichtbar ist
-                const analysisTab = document.getElementById('analysis-tab');
-                if(analysisTab && !analysisTab.classList.contains('hidden') && performanceChart) {
-                    renderPerformanceChart();
-                }
-            });
-            
-            // Firestore Echtzeit-Listener für Watchlist
-            const userWatchlistCollection = collection(db, `artifacts/${appId}/users/${userId}/watchlist`);
-            onSnapshot(userWatchlistCollection, (querySnapshot) => {
-                watchlistItems.innerHTML = '';
-                console.log("-> Watchlist-Daten empfangen");
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const card = document.createElement('div');
-                    card.classList.add('bg-white', 'dark:bg-gray-800', 'p-4', 'rounded-lg', 'shadow-md', 'flex', 'items-center', 'justify-between');
-                    card.innerHTML = `
-                        <div class="flex items-center space-x-4">
-                            <img src="${data.logoUrl}" alt="${data.symbol} Logo" class="h-10 w-10 rounded-full">
-                            <div>
-                                <h4 class="text-lg font-semibold text-gray-900 dark:text-white">${data.companyName}</h4>
-                                <p class="text-gray-500 dark:text-gray-400 text-sm">${data.symbol}</p>
-                            </div>
-                        </div>
-                        <button data-doc-id="${doc.id}" class="remove-watchlist-item p-2 text-red-500 hover:text-red-700">
-                            <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                            </svg>
-                        </button>
-                    `;
-                    watchlistItems.appendChild(card);
-                });
-                document.querySelectorAll('.remove-watchlist-item').forEach(button => {
-                    button.addEventListener('click', async (e) => {
-                        const docId = e.currentTarget.dataset.docId;
-                        const userWatchlistCollection = collection(db, `artifacts/${appId}/users/${userId}/watchlist`);
-                        await deleteDoc(doc(userWatchlistCollection, docId));
-                        console.log(translations[currentLanguage]['remove-watchlist-item']);
-                    });
-                });
-            });
-            
-            // Firestore Echtzeit-Listener für Dividenden
-            const userDividendsCollection = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
-            onSnapshot(userDividendsCollection, (querySnapshot) => {
-                const dividends = [];
-                let totalDividendsAmount = 0;
-                dividendsTableBody.innerHTML = '';
-                console.log("-> Dividenden-Daten empfangen");
-                querySnapshot.forEach(doc => {
-                    const data = doc.data();
-                    dividends.push(data);
-                    totalDividendsAmount += data.amount;
-                });
-
-                // Sortieren nach Datum
-                dividends.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-                // Tabelle rendern
-                dividends.forEach(dividend => {
-                     const row = document.createElement('tr');
-                    row.classList.add('bg-white', 'dark:bg-gray-800', 'border-b', 'dark:border-gray-700');
-                    row.innerHTML = `
-                        <td class="py-4 px-6">${dividend.companyName}</td>
-                        <th scope="row" class="py-4 px-6 font-medium text-gray-900 dark:text-white whitespace-nowrap">${dividend.symbol}</th>
-                        <td class="py-4 px-6">${formatCurrency(dividend.amount)}</td>
-                        <td class="py-4 px-6">${dividend.date}</td>
-                    `;
-                    dividendsTableBody.appendChild(row);
-                });
-                
-                totalDividendsDisplay.textContent = formatCurrency(totalDividendsAmount);
-
-                // Chart nach dem Laden der Daten rendern
-                const analysisTab = document.getElementById('analysis-tab');
-                if(analysisTab && !analysisTab.classList.contains('hidden') && dividendsChart) {
-                    renderDividendChart(dividends);
-                }
-            });
-        }
-
-        // Funktion, um das Performance-Diagramm zu rendern (jetzt global)
-        function renderPerformanceChart() {
-            const ctx = document.getElementById('performance-chart').getContext('2d');
-            if (performanceChart) {
-                performanceChart.destroy();
+        // Transaktion zur Datenbank hinzufügen
+        async function addTransaction(transaction) {
+            if (!isAuthReady || !userId) {
+                console.error('Depot-Manager/:1145 -> Fehler beim Hinzufügen der Transaktion: Nutzer nicht angemeldet.');
+                showMessage('Authentifizierungsfehler', 'Sie müssen angemeldet sein, um Transaktionen hinzuzufügen.');
+                return;
             }
-
-            const labels = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun'];
-            const data = {
-                labels: labels,
-                datasets: [
-                    {
-                        label: translations[currentLanguage]['chart-performance-label'],
-                        data: [10000, 10500, 11200, 10900, 11500, 12100],
-                        borderColor: 'rgb(79, 70, 229)',
-                        backgroundColor: 'rgba(79, 70, 229, 0.2)',
-                        tension: 0.3,
-                        fill: true
-                    },
-                    {
-                        label: translations[currentLanguage]['chart-benchmark-label'],
-                        data: [10000, 10200, 10800, 10700, 11000, 11400],
-                        borderColor: 'rgb(107, 114, 128)',
-                        backgroundColor: 'rgba(107, 114, 128, 0.2)',
-                        tension: 0.3,
-                        fill: false
-                    }
-                ]
-            };
-
-            const config = {
-                type: 'line',
-                data: data,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: document.body.classList.contains('dark') ? '#e2e8f0' : '#4a5568'
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                color: document.body.classList.contains('dark') ? '#a0aec0' : '#718096'
-                            },
-                            grid: {
-                                color: document.body.classList.contains('dark') ? '#4a5568' : '#e2e8f0'
-                            }
-                        },
-                        y: {
-                            ticks: {
-                                color: document.body.classList.contains('dark') ? '#a0aec0' : '#718096'
-                            },
-                            grid: {
-                                color: document.body.classList.contains('dark') ? '#4a5568' : '#e2e8f0'
-                            }
-                        }
-                    }
-                }
-            };
-            performanceChart = new Chart(ctx, config);
-        }
-
-        // Funktion, um das Dividenden-Diagramm zu rendern (jetzt global)
-        function renderDividendChart(dividendsData) {
-            const ctx = document.getElementById('dividends-chart').getContext('2d');
-            if (dividendsChart) {
-                dividendsChart.destroy();
+            showLoading();
+            try {
+                const transactionsRef = collection(db, `artifacts/${appId}/users/${userId}/transactions`);
+                await addDoc(transactionsRef, transaction);
+                console.log('Depot-Manager/:1120 -> Transaktion erfolgreich hinzugefügt.');
+            } catch (error) {
+                console.error('Depot-Manager/:1145 -> Fehler beim Hinzufügen der Transaktion:', error);
+                showMessage('Datenbankfehler', `Fehler beim Hinzufügen der Transaktion: ${error.message}`);
+            } finally {
+                hideLoading();
             }
-
-            // Daten nach Jahr aggregieren
-            const yearlyDividends = dividendsData.reduce((acc, dividend) => {
-                const year = new Date(dividend.date).getFullYear();
-                acc[year] = (acc[year] || 0) + dividend.amount;
-                return acc;
-            }, {});
-
-            const labels = Object.keys(yearlyDividends).sort();
-            const data = labels.map(year => yearlyDividends[year]);
-
-            const config = {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: translations[currentLanguage]['chart-dividend-label'],
-                        data: data,
-                        backgroundColor: 'rgba(16, 185, 129, 0.6)', // Tailwind's green-500 mit Transparenz
-                        borderColor: 'rgba(16, 185, 129, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: translations[currentLanguage]['chart-x-axis-year'],
-                                color: document.body.classList.contains('dark') ? '#a0aec0' : '#718096'
-                            },
-                            ticks: {
-                                color: document.body.classList.contains('dark') ? '#a0aec0' : '#718096'
-                            },
-                            grid: {
-                                color: document.body.classList.contains('dark') ? '#4a5568' : '#e2e8f0'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: translations[currentLanguage]['chart-y-axis-amount'],
-                                color: document.body.classList.contains('dark') ? '#a0aec0' : '#718096'
-                            },
-                            beginAtZero: true,
-                            ticks: {
-                                color: document.body.classList.contains('dark') ? '#a0aec0' : '#718096'
-                            },
-                            grid: {
-                                color: document.body.classList.contains('dark') ? '#4a5568' : '#e2e8f0'
-                            }
-                        }
-                    }
-                }
-            };
-            dividendsChart = new Chart(ctx, config);
         }
 
-        // Hauptfunktion, die die Benutzeroberfläche initialisiert
-        function initializeUI() {
-            console.log("-> UI-Initialisierung gestartet.");
-            
-            // UI-Elemente zuweisen (globale Variablen)
-            const tabButtons = document.querySelectorAll('.tab-button');
-            const tabContents = document.querySelectorAll('.tab-content');
-            const addTransactionBtn = document.getElementById('add-transaction-button');
-            const transactionModal = document.getElementById('add-transaction-modal');
-            const closeTransactionModalBtn = document.getElementById('close-transaction-modal-button');
-            const addTransactionForm = document.getElementById('add-transaction-form');
-            const themeToggleBtn = document.getElementById('theme-toggle');
-            const appTitle = document.getElementById('app-title');
+        // UI-Funktionen
+        function renderOverview() {
+            const overviewContent = document.getElementById('content-overview');
+            const placeholder = overviewContent.querySelector('p');
 
-            const importDataButton = document.getElementById('import-data-button');
-            const addWatchlistBtn = document.getElementById('add-watchlist-button');
-            const watchlistModal = document.getElementById('add-watchlist-modal');
-            const closeWatchlistModalBtn = document.getElementById('close-watchlist-modal-button');
-            const addWatchlistForm = document.getElementById('add-watchlist-form');
-            const addDividendBtn = document.getElementById('add-dividend-button');
-            const dividendModal = document.getElementById('add-dividend-modal');
-            const closeDividendModalBtn = document.getElementById('close-dividend-modal-button');
-            const addDividendForm = document.getElementById('add-dividend-form');
-            const newsFeed = document.getElementById('news-feed');
-            const languageToggleBtn = document.getElementById('language-toggle');
-            const closeErrorModalBtn = document.getElementById('close-error-modal-button');
-            
-            console.log("-> UI-Elemente im DOM gefunden");
+            if (state.transactions.length > 0) {
+                placeholder.classList.add('hidden');
+                // Beispiel-Rendering von Transaktionen
+                let tableHtml = `
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Symbol</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Typ</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Datum</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Preis</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Anzahl</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                `;
+                state.transactions.forEach(t => {
+                    tableHtml += `
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">${t.symbol}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${t.type}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${t.date}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${t.price}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">${t.quantity}</td>
+                        </tr>
+                    `;
+                });
+                tableHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                // Transaktionen am Anfang des Inhaltsbereichs einfügen
+                const existingTable = overviewContent.querySelector('table');
+                if (existingTable) {
+                    existingTable.closest('div').innerHTML = tableHtml;
+                } else {
+                    const newTableContainer = document.createElement('div');
+                    newTableContainer.innerHTML = tableHtml;
+                    overviewContent.querySelector('.p-6').prepend(newTableContainer.firstElementChild);
+                }
+            } else {
+                placeholder.classList.remove('hidden');
+                const existingTable = overviewContent.querySelector('table');
+                if (existingTable) {
+                    existingTable.closest('div').remove();
+                }
+            }
+        }
 
-            // Tabs-Logik
+        // Simulierter Datenimport
+        function simulateDataImport() {
+            console.log('Depot-Manager/:1208 -> Datenimport-Button geklickt');
+            showMessage('Datenimport', 'Simulierter Datenimport abgeschlossen. Es wurden keine Daten geladen.');
+            console.log('Depot-Manager/:1250 Simulierter Datenimport abgeschlossen.');
+        }
+        
+        // Modal öffnen/schließen
+        function openTransactionModal() {
+            console.log('Depot-Manager/:1063 -> Transaktions-Modal öffnen');
+            transactionModal.classList.remove('hidden');
+            state.isModalOpen = true;
+        }
+
+        function closeTransactionModal() {
+            console.log('Depot-Manager/:1067 -> Transaktions-Modal schließen');
+            transactionModal.classList.add('hidden');
+            state.isModalOpen = false;
+        }
+        
+        // Event-Listener
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('Depot-Manager/:992 -> UI-Initialisierung gestartet.');
+
+            await setupFirebase();
+            console.log('Depot-Manager/:1017 -> UI-Elemente im DOM gefunden');
+            
+            // Tab-Navigation
             tabButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    console.log(`-> Tab-Button geklickt: ${button.dataset.tab}`);
+                button.addEventListener('click', (e) => {
+                    const targetId = e.target.id.replace('tab-', 'content-');
+                    console.log(`Depot-Manager/:1022 -> Tab-Button geklickt: ${targetId.replace('content-', '')}`);
                     tabButtons.forEach(btn => btn.classList.remove('active'));
                     tabContents.forEach(content => content.classList.add('hidden'));
-
-                    button.classList.add('active');
-                    const targetTab = document.getElementById(`${button.dataset.tab}-tab`);
-                    if (targetTab) {
-                        targetTab.classList.remove('hidden');
-                    }
-                    
-
-                    // Rufe spezifische Funktionen nur bei Bedarf auf
-                    if (button.dataset.tab === 'analysis') {
-                        renderPerformanceChart();
-                        // Beim Wechsel zum Analysis-Tab das Dividenden-Chart rendern
-                        // Da die Daten bereits im onSnapshot-Listener geladen werden,
-                        // müssen wir nur die render-Funktion aufrufen.
-                        const userDividendsCollection = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
-                        getDocs(userDividendsCollection).then(querySnapshot => {
-                            const dividends = [];
-                            querySnapshot.forEach(doc => dividends.push(doc.data()));
-                            renderDividendChart(dividends);
-                        });
-                    } else if (button.dataset.tab === 'news') {
-                        fetchNews();
-                    }
+                    e.target.classList.add('active');
+                    document.getElementById(targetId).classList.remove('hidden');
                 });
             });
-            
-            // Fehlermodal-Logik
-            closeErrorModalBtn.addEventListener('click', () => {
-                errorModal.classList.remove('active');
-            });
-            errorModal.addEventListener('click', (e) => {
-                if (e.target === errorModal) {
-                    errorModal.classList.remove('active');
-                }
+
+            // Theme-Umschalter
+            themeToggle.addEventListener('click', () => {
+                console.log('Depot-Manager/:1293 -> Theme-Toggle geklickt');
+                state.isDarkMode = !state.isDarkMode;
+                body.classList.toggle('dark', state.isDarkMode);
+                themeHandle.classList.toggle('translate-x-full', state.isDarkMode);
             });
 
-            // Modalfenster-Logik für Transaktionen
-            addTransactionBtn.addEventListener('click', () => {
-                console.log("-> Transaktions-Modal öffnen");
-                transactionModal.classList.add('active');
-            });
-            closeTransactionModalBtn.addEventListener('click', () => {
-                console.log("-> Transaktions-Modal schließen");
-                transactionModal.classList.remove('active');
-            }
-            );
-            transactionModal.addEventListener('click', (e) => {
-                if (e.target === transactionModal) {
-                    transactionModal.classList.remove('active');
-                }
+            // Sprach-Umschalter (simuliert)
+            langToggle.addEventListener('click', () => {
+                console.log('Depot-Manager/:1303 -> Sprach-Toggle geklickt');
+                state.currentLanguage = state.currentLanguage === 'de' ? 'en' : 'de';
+                showMessage('Sprache geändert', `Sprache wurde auf "${state.currentLanguage.toUpperCase()}" umgestellt (simuliert).`);
             });
 
-            // Modalfenster-Logik für Dividenden
-            addDividendBtn.addEventListener('click', () => {
-                console.log("-> Dividenden-Modal öffnen");
-                dividendModal.classList.add('active');
-            });
-            closeDividendModalBtn.addEventListener('click', () => {
-                console.log("-> Dividenden-Modal schließen");
-                dividendModal.classList.remove('active');
-            });
-            dividendModal.addEventListener('click', (e) => {
-                if (e.target === dividendModal) {
-                    dividendModal.classList.remove('active');
-                }
-            });
+            // Button-Events
+            btnImport.addEventListener('click', simulateDataImport);
+            btnAddTransaction.addEventListener('click', openTransactionModal);
+            btnCloseTransactionModal.addEventListener('click', closeTransactionModal);
+            messageCloseBtn.addEventListener('click', hideMessage);
 
-            // Modalfenster-Logik für Watchlist
-            addWatchlistBtn.addEventListener('click', () => {
-                console.log("-> Watchlist-Modal öffnen");
-                watchlistModal.classList.add('active');
-            });
-            closeWatchlistModalBtn.addEventListener('click', () => {
-                console.log("-> Watchlist-Modal schließen");
-                watchlistModal.classList.remove('active');
-            });
-            watchlistModal.addEventListener('click', (e) => {
-                if (e.target === watchlistModal) {
-                    watchlistModal.classList.remove('active');
-                }
-            });
-
-            // Formular-Logik für Transaktionen
-            addTransactionForm.addEventListener('submit', async (e) => {
+            // Formular-Submit
+            transactionForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                console.log("-> Transaktions-Formular gesendet");
-                const transactionType = document.getElementById('transaction-type').value;
-                const symbol = document.getElementById('symbol').value.toUpperCase();
-                let shares = parseFloat(document.getElementById('shares').value);
-                const price = parseFloat(document.getElementById('price').value);
-                const transactionDate = document.getElementById('transaction-date').value;
-
-                // Verkäufe mit negativem Wert speichern
-                if (transactionType === 'sell') {
-                    shares = -shares;
-                }
-
-                // Hier würden wir Live-Daten abrufen, aber verwenden stattdessen Mock-Daten
-                const currentPrice = price * (1 + (Math.random() - 0.5) * 0.2);
-                const companyName = getMockCompanyName(symbol);
-
+                console.log('Depot-Manager/:1110 -> Transaktions-Formular gesendet');
                 const newTransaction = {
-                    symbol: symbol,
-                    companyName: companyName,
-                    logoUrl: getMockLogoUrl(symbol),
-                    shares: shares,
-                    price: price,
-                    transactionType: transactionType,
-                    date: transactionDate,
-                    currentPrice: currentPrice
+                    symbol: document.getElementById('symbol').value,
+                    type: document.getElementById('type').value,
+                    date: document.getElementById('date').value,
+                    price: parseFloat(document.getElementById('price').value),
+                    quantity: parseInt(document.getElementById('quantity').value, 10),
                 };
-
-                try {
-                    // Transaktion in Firestore speichern
-                    const userPortfolioCollection = collection(db, `artifacts/${appId}/users/${userId}/portfolio`);
-                    await addDoc(userPortfolioCollection, newTransaction);
-                    console.log('-> Neue Transaktion erfolgreich hinzugefügt:', newTransaction);
-                    transactionModal.classList.remove('active');
-                    addTransactionForm.reset();
-                } catch (error) {
-                    console.error('-> Fehler beim Hinzufügen der Transaktion:', error);
-                    showErrorMessage(`Fehler beim Speichern der Transaktion: ${error.message}`);
-                }
+                await addTransaction(newTransaction);
+                closeTransactionModal();
+                transactionForm.reset();
             });
 
-            // Formular-Logik für Dividenden
-            addDividendForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                console.log("-> Dividenden-Formular gesendet");
-                const symbol = document.getElementById('dividend-symbol').value.toUpperCase();
-                const amount = parseFloat(document.getElementById('dividend-amount').value);
-                const shares = parseFloat(document.getElementById('dividend-shares').value);
-                const dividendDate = document.getElementById('dividend-date').value;
-                const companyName = getMockCompanyName(symbol);
-
-                const newDividend = {
-                    symbol: symbol,
-                    companyName: companyName,
-                    amount: amount * shares, // Gesamtdividende berechnen
-                    date: dividendDate,
-                    logoUrl: getMockLogoUrl(symbol)
-                };
-
-                try {
-                    const userDividendsCollection = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
-                    await addDoc(userDividendsCollection, newDividend);
-                    console.log('-> Neue Dividende erfolgreich hinzugefügt:', newDividend);
-                    dividendModal.classList.remove('active');
-                    addDividendForm.reset();
-                } catch (error) {
-                    console.error('-> Fehler beim Hinzufügen der Dividende:', error);
-                    showErrorMessage(`Fehler beim Speichern der Dividende: ${error.message}`);
-                }
-            });
+            console.log('Depot-Manager/:1310 -> UI-Initialisierung abgeschlossen. Alle Event-Listener sollten jetzt aktiv sein.');
             
-            // Formular-Logik für Watchlist
-            addWatchlistForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                console.log("-> Watchlist-Formular gesendet");
-                const symbol = document.getElementById('watchlist-symbol').value.toUpperCase();
-                const companyName = getMockCompanyName(symbol);
-
-                const newWatchlistItem = {
-                    symbol: symbol,
-                    companyName: companyName,
-                    logoUrl: getMockLogoUrl(symbol),
-                    addedAt: new Date().toISOString()
-                };
-
-                try {
-                    const userWatchlistCollection = collection(db, `artifacts/${appId}/users/${userId}/watchlist`);
-                    await addDoc(userWatchlistCollection, newWatchlistItem);
-                    console.log('-> Aktie zur Watchlist hinzugefügt:', newWatchlistItem);
-                    watchlistModal.classList.remove('active');
-                    addWatchlistForm.reset();
-                } catch (error) {
-                    console.error('-> Fehler beim Hinzufügen zur Watchlist:', error);
-                    showErrorMessage(`Fehler beim Hinzufügen zur Watchlist: ${error.message}`);
-                }
-            });
-
-            // Simulierte Datenimport-Logik mit Dividenden
-            importDataButton.addEventListener('click', () => {
-                console.log("-> Datenimport-Button geklickt");
-                const mockPortfolioData = [
-                    { symbol: 'AAPL', transactionType: 'buy', shares: 50, price: 150.00, date: '2023-01-10' },
-                    { symbol: 'MSFT', transactionType: 'buy', shares: 30, price: 280.50, date: '2023-01-15' },
-                    { symbol: 'GOOGL', transactionType: 'buy', shares: 10, price: 2500.00, date: '2023-02-01' },
-                    { symbol: 'AAPL', transactionType: 'sell', shares: 20, price: 160.00, date: '2023-02-20' }, // Verkaufs-Transaktion
-                ];
-
-                const mockDividendsData = [
-                    { symbol: 'AAPL', amountPerShare: 0.24, shares: 30, date: '2023-05-15' },
-                    { symbol: 'MSFT', amountPerShare: 0.68, shares: 30, date: '2023-04-20' },
-                    { symbol: 'AAPL', amountPerShare: 0.24, shares: 30, date: '2023-08-15' },
-                ];
-
-                mockPortfolioData.forEach(async (item) => {
-                    const currentPrice = item.price * (1 + (Math.random() - 0.5) * 0.2);
-                    const newTransaction = {
-                        symbol: item.symbol,
-                        companyName: getMockCompanyName(item.symbol),
-                        logoUrl: getMockLogoUrl(item.symbol),
-                        shares: item.transactionType === 'buy' ? item.shares : -item.shares,
-                        price: item.price,
-                        transactionType: item.transactionType,
-                        date: item.date,
-                        currentPrice: currentPrice
-                    };
-                    const userPortfolioCollection = collection(db, `artifacts/${appId}/users/${userId}/portfolio`);
-                    await addDoc(userPortfolioCollection, newTransaction);
-                });
-
-                mockDividendsData.forEach(async (item) => {
-                    const newDividend = {
-                        symbol: item.symbol,
-                        companyName: getMockCompanyName(item.symbol),
-                        amount: item.amountPerShare * item.shares,
-                        date: item.date,
-                        logoUrl: getMockLogoUrl(item.symbol)
-                    };
-                    const userDividendsCollection = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
-                    await addDoc(userDividendsCollection, newDividend);
-                });
-
-                console.log(translations[currentLanguage]['import-data-done']);
-            });
-
-            // Simuliert das Abrufen von Nachrichten
-            function fetchNews() {
-                console.log("-> Nachrichten werden geladen");
-                const t = translations[currentLanguage];
+            // Lade Nachrichten (simuliert)
+            setTimeout(() => {
+                const newsStatus = document.getElementById('news-status');
+                const newsList = document.getElementById('news-list');
                 const mockNews = [
-                    {
-                        title: t['news-article-1-title'],
-                        summary: t['news-article-1-summary'],
-                        source: t['news-article-1-source'],
-                        date: '2023-06-11'
-                    },
-                    {
-                        title: t['news-article-2-title'],
-                        summary: t['news-article-2-summary'],
-                        source: t['news-article-2-source'],
-                        date: '2023-06-09'
-                    },
-                    {
-                        title: t['news-article-3-title'],
-                        summary: t['news-article-3-summary'],
-                        source: t['news-article-3-source'],
-                        date: '2023-06-10'
-                    }
+                    { title: "Börse schließt mit leichten Gewinnen", source: "Finanz-Nachrichten", date: "2025-08-11" },
+                    { title: "Technologieaktien im Aufwind", source: "Handelsblatt", date: "2025-08-10" },
+                    { title: "Analyse: Wie geht es mit der Inflation weiter?", source: "Wall Street Journal", date: "2025-08-09" }
                 ];
-
-                newsFeed.innerHTML = '';
-                mockNews.forEach(article => {
-                    const newsCard = document.createElement('div');
-                    newsCard.classList.add('p-4', 'bg-gray-50', 'dark:bg-gray-700', 'rounded-lg', 'shadow-sm');
-                    newsCard.innerHTML = `
-                        <h4 class="text-lg font-semibold text-gray-900 dark:text-white">${article.title}</h4>
-                        <p class="text-gray-600 dark:text-gray-300 text-sm mt-1">${article.summary}</p>
-                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">Quelle: ${article.source} | Datum: ${article.date}</p>
-                    `;
-                    newsFeed.appendChild(newsCard);
-                });
-            }
-
-            // Dark-Mode-Logik
-            themeToggleBtn.addEventListener('click', () => {
-                console.log("-> Theme-Toggle geklickt");
-                document.body.classList.toggle('dark');
-                // Charts neu rendern, um die Farben anzupassen
-                renderPerformanceChart();
-                // Da DividendenChart nur bei Bedarf gerendert wird, müssen wir hier nichts tun.
-                // Es wird beim nächsten Wechsel zum Analysis-Tab neu gerendert.
-            });
-            
-            // Sprachumschalt-Logik
-            languageToggleBtn.addEventListener('click', () => {
-                console.log("-> Sprach-Toggle geklickt");
-                const newLang = languageToggleBtn.dataset.lang === 'de' ? 'en' : 'de';
-                updateLanguage(newLang);
-            });
-            
-            // Initialisierung der Sprache
-            updateLanguage(currentLanguage);
-            console.log("-> UI-Initialisierung abgeschlossen. Alle Event-Listener sollten jetzt aktiv sein.");
-        }
-
-        // Starten der UI-Initialisierung und der Firebase-Einrichtung beim Laden des DOM
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log("-> DOMContentLoaded-Ereignis ausgelöst. Starte UI-Setup und Firebase.");
-            // Globale Variablen für UI-Elemente zuweisen, damit sie sofort verfügbar sind
-            portfolioTableBody = document.getElementById('portfolio-table-body');
-            totalValueDisplay = document.getElementById('total-value');
-            watchlistItems = document.getElementById('watchlist-items');
-            dividendsTableBody = document.getElementById('dividends-table-body');
-            totalDividendsDisplay = document.getElementById('total-dividends');
-            errorModal = document.getElementById('error-modal');
-            errorModalMessage = document.getElementById('error-modal-message');
-            
-            // Jetzt, da die UI-Elemente zugewiesen sind, können wir Firebase sicher einrichten.
-            setupFirebase();
-
-            // Zusätzliche UI-Logik kann hier ebenfalls initialisiert werden
-            initializeUI();
+                newsStatus.textContent = 'Aktuelle Nachrichten:';
+                newsList.innerHTML = mockNews.map(news => `
+                    <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-md">
+                        <h4 class="font-medium">${news.title}</h4>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">${news.source} - ${news.date}</p>
+                    </div>
+                `).join('');
+            }, 1000);
         });
     </script>
 </body>
