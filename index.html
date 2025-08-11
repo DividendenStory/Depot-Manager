@@ -495,9 +495,9 @@
                 'btn-cancel-watchlist': 'Cancel',
                 'chart-performance-label': 'Portfolio Performance',
                 'chart-benchmark-label': 'Benchmark (DAX)',
+                'chart-dividend-label': 'Annual Dividends (€)',
                 'chart-x-axis-year': 'Year',
                 'chart-y-axis-amount': 'Amount (€)',
-                'chart-dividend-label': 'Annual Dividends (€)',
                 'news-article-1-title': 'Apple Unveils New AI Features for iOS',
                 'news-article-1-summary': 'Apple announces the integration of generative AI into its operating systems at WWDC, leading to a significant increase in its stock price.',
                 'news-article-1-source': 'TechCrunch',
@@ -604,14 +604,16 @@
 
             // Re-render dynamic content if the respective tab is active
             const analysisTab = document.getElementById('analysis-tab');
-            if (analysisTab && !analysisTab.classList.contains('hidden') && performanceChart) {
-                renderPerformanceChart();
-                const userDividendsCollection = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
-                getDocs(userDividendsCollection).then(querySnapshot => {
-                    const dividends = [];
-                    querySnapshot.forEach(doc => dividends.push(doc.data()));
-                    renderDividendChart(dividends);
-                });
+            if (analysisTab && !analysisTab.classList.contains('hidden')) {
+                if (performanceChart) renderPerformanceChart();
+                if (dividendsChart && db && userId) {
+                    const userDividendsCollection = collection(db, `artifacts/${appId}/users/${userId}/dividends`);
+                    getDocs(userDividendsCollection).then(querySnapshot => {
+                        const dividends = [];
+                        querySnapshot.forEach(doc => dividends.push(doc.data()));
+                        renderDividendChart(dividends);
+                    });
+                }
             }
             
             const newsTab = document.getElementById('news-tab');
@@ -661,10 +663,10 @@
                 appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // appId global zuweisen
                 
                 // Prüfen, ob die Konfiguration gültig ist
-                if (!firebaseConfig || !firebaseConfig.projectId || firebaseConfig.projectId.includes('Ihr_Projekt-ID_hier')) {
+                if (!firebaseConfig.projectId || firebaseConfig.projectId.includes('Ihr_Projekt-ID_hier')) {
                     console.error('-> Firebase-Konfiguration fehlt oder ist ungültig.');
                     showErrorMessage(translations[currentLanguage]['firebase-config-error']);
-                    return;
+                    return; // Beende die Ausführung, wenn die Konfiguration fehlt
                 }
                 
                 console.log("-> Firebase-Konfig geladen");
@@ -684,19 +686,15 @@
                     console.log("-> Anonym angemeldet");
                 }
                 
-                // onAuthStateChanged wird beim Initialisieren des DOM-Inhalts und der Authentifizierung
-                // aufgerufen, und der Code wird erst ausgeführt, wenn das geschehen ist.
                 onAuthStateChanged(auth, (user) => {
                     console.log("-> onAuthStateChanged-Callback aufgerufen");
                     if (user) {
                         userId = user.uid;
                         console.log(`-> Benutzer authentifiziert mit ID: ${userId}.`);
-                        // Starte die Hauptlogik erst nach erfolgreicher Authentifizierung
-                        initializeUI();
                         // Setze die Echtzeit-Listener für alle Daten
                         setupRealtimeListeners();
                     } else {
-                        console.error('-> Authentifizierung fehlgeschlagen oder anonym. UI nicht initialisiert.');
+                        console.error('-> Authentifizierung fehlgeschlagen oder anonym. Echtzeit-Listener nicht gestartet.');
                     }
                 });
 
@@ -988,7 +986,10 @@
         function initializeUI() {
             console.log("-> UI-Initialisierung gestartet.");
             
-            // UI-Elemente zuweisen
+            // UI-Elemente zuweisen (globale Variablen)
+            // Dies wurde in den DOMContentLoaded-Event-Listener verschoben
+            
+            // Neu hinzugefügte UI-Elemente
             const tabButtons = document.querySelectorAll('.tab-button');
             const tabContents = document.querySelectorAll('.tab-content');
             const addTransactionBtn = document.getElementById('add-transaction-button');
@@ -998,16 +999,6 @@
             const themeToggleBtn = document.getElementById('theme-toggle');
             const appTitle = document.getElementById('app-title');
 
-            // Globale Variablen zuweisen
-            portfolioTableBody = document.getElementById('portfolio-table-body');
-            totalValueDisplay = document.getElementById('total-value');
-            watchlistItems = document.getElementById('watchlist-items');
-            dividendsTableBody = document.getElementById('dividends-table-body');
-            totalDividendsDisplay = document.getElementById('total-dividends');
-            errorModal = document.getElementById('error-modal');
-            errorModalMessage = document.getElementById('error-modal-message');
-
-            // Neu hinzugefügte UI-Elemente
             const importDataButton = document.getElementById('import-data-button');
             const addWatchlistBtn = document.getElementById('add-watchlist-button');
             const watchlistModal = document.getElementById('add-watchlist-modal');
@@ -1317,9 +1308,18 @@
             console.log("-> UI-Initialisierung abgeschlossen. Alle Event-Listener sollten jetzt aktiv sein.");
         }
 
-        // Starten der Firebase-Einrichtung beim Laden des DOM
+        // Starten der UI-Initialisierung und der Firebase-Einrichtung beim Laden des DOM
         document.addEventListener('DOMContentLoaded', () => {
-            console.log("-> DOMContentLoaded-Ereignis ausgelöst. Starte Firebase-Setup.");
+            console.log("-> DOMContentLoaded-Ereignis ausgelöst. Starte UI-Setup und Firebase.");
+            // Globale Variablen für UI-Elemente zuweisen, damit sie sofort verfügbar sind
+            portfolioTableBody = document.getElementById('portfolio-table-body');
+            totalValueDisplay = document.getElementById('total-value');
+            watchlistItems = document.getElementById('watchlist-items');
+            dividendsTableBody = document.getElementById('dividends-table-body');
+            totalDividendsDisplay = document.getElementById('total-dividends');
+            errorModal = document.getElementById('error-modal');
+            errorModalMessage = document.getElementById('error-modal-message');
+
             setupFirebase();
         });
     </script>
