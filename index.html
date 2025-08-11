@@ -10,7 +10,6 @@ const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 // Globale Firebase-Imports
-// Wir können diese nur einmal laden, um Syntaxfehler zu vermeiden
 const { initializeApp } = window.firebase;
 const { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } = window.auth;
 const { getFirestore, addDoc, onSnapshot, collection } = window.firestore;
@@ -230,18 +229,19 @@ const App = () => {
 
   // --- UI-Komponenten und Logik ---
   const [ticker, setTicker] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [price, setPrice] = useState('');
+  // Initialisierung mit 0 statt ''
+  const [quantity, setQuantity] = useState(0); 
+  const [price, setPrice] = useState(0); 
   const [type, setType] = useState('Kauf');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
   const [dividendTicker, setDividendTicker] = useState('');
-  const [dividendAmount, setDividendAmount] = useState('');
+  const [dividendAmount, setDividendAmount] = useState(0); // Initialisierung mit 0
   const [dividendDate, setDividendDate] = useState(new Date().toISOString().split('T')[0]);
 
   const handleAddTransaction = async (e) => {
     e.preventDefault();
-    if (!ticker || !quantity || !price || !date || !userId || !db) return;
+    if (!ticker || quantity <= 0 || price <= 0 || !date || !userId || !db) return;
     
     try {
       const userPath = `artifacts/${appId}/users/${userId}`;
@@ -257,14 +257,14 @@ const App = () => {
     }
     
     setTicker('');
-    setQuantity('');
-    setPrice('');
+    setQuantity(0); // Zurücksetzen auf 0
+    setPrice(0); // Zurücksetzen auf 0
     setDate(new Date().toISOString().split('T')[0]);
   };
 
   const handleAddDividend = async (e) => {
     e.preventDefault();
-    if (!dividendTicker || !dividendAmount || !dividendDate || !userId || !db) return;
+    if (!dividendTicker || dividendAmount <= 0 || !dividendDate || !userId || !db) return;
 
     try {
       const userPath = `artifacts/${appId}/users/${userId}`;
@@ -278,7 +278,7 @@ const App = () => {
     }
     
     setDividendTicker('');
-    setDividendAmount('');
+    setDividendAmount(0); // Zurücksetzen auf 0
     setDividendDate(new Date().toISOString().split('T')[0]);
   };
 
@@ -335,7 +335,7 @@ const App = () => {
       console.error("Fehler beim Datenimport:", error);
     } finally {
       setImportingData(false);
-      event.target.value = null; // Zurücksetzen des Dateieingabefelds
+      event.target.value = null;
     }
   };
 
@@ -638,6 +638,7 @@ root.appendChild(container);
 ReactDOM.createRoot(container).render(
   <React.StrictMode>
     <App />
+    <FormStyle />
   </React.StrictMode>
 );
 
