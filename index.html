@@ -338,12 +338,12 @@
         // Sie finden diese in der Firebase-Konsole unter "Projekteinstellungen".
         // =========================================================================
         const myFirebaseConfig = {
-          apiKey: "Ihre_API_Schlüssel_hier",
-          authDomain: "Ihre_Auth_Domain_hier",
-          projectId: "Ihr_Projekt-ID_hier",
-          storageBucket: "Ihr_Storage_Bucket_hier",
-          messagingSenderId: "Ihre_Sender-ID_hier",
-          appId: "Ihre_App-ID_hier"
+          apiKey: "AIzaSyBNDnCpZ8ahAcEl4OaRQaIorWv6gYxaHBs",
+          authDomain: "depot-manager-d2148.firebaseapp.com",
+          projectId: "depot-manager-d2148",
+          storageBucket: "depot-manager-d2148.firebasestorage.app",
+          messagingSenderId: "781534363246",
+          appId: "1:781534363246:web:5216f81b044e2fb040f07f"
         };
         // =========================================================================
         // =========================================================================
@@ -628,8 +628,13 @@
         }
         
         function showErrorMessage(message) {
-            errorModalMessage.textContent = message;
-            errorModal.classList.add('active');
+            // Sicherstellen, dass das Modal und die Nachricht existieren
+            if (errorModal && errorModalMessage) {
+                errorModalMessage.textContent = message;
+                errorModal.classList.add('active');
+            } else {
+                console.error("Kann Fehlermeldung nicht anzeigen, da das Modal nicht gefunden wurde.");
+            }
         }
 
         function getMockLogoUrl(symbol) {
@@ -987,9 +992,6 @@
             console.log("-> UI-Initialisierung gestartet.");
             
             // UI-Elemente zuweisen (globale Variablen)
-            // Dies wurde in den DOMContentLoaded-Event-Listener verschoben
-            
-            // Neu hinzugefügte UI-Elemente
             const tabButtons = document.querySelectorAll('.tab-button');
             const tabContents = document.querySelectorAll('.tab-content');
             const addTransactionBtn = document.getElementById('add-transaction-button');
@@ -1319,8 +1321,12 @@
             totalDividendsDisplay = document.getElementById('total-dividends');
             errorModal = document.getElementById('error-modal');
             errorModalMessage = document.getElementById('error-modal-message');
-
+            
+            // Jetzt, da die UI-Elemente zugewiesen sind, können wir Firebase sicher einrichten.
             setupFirebase();
+
+            // Zusätzliche UI-Logik kann hier ebenfalls initialisiert werden
+            initializeUI();
         });
     </script>
 </body>
